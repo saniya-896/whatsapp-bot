@@ -6,6 +6,14 @@ from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
 
+app = Flask(__name__)
+
+ACCOUNT_SID = os.environ["ACCOUNT_SID"]
+AUTH_TOKEN = os.environ["AUTH_TOKEN"]
+
+user_data = {}
+
+
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_bot():
 
@@ -17,9 +25,7 @@ def whatsapp_bot():
     text_msg = request.values.get("Body", "").strip().lower()
 
     # 🎤 ===== VOICE INPUT =====
-    content_type = request.values.get("MediaContentType0", "")
-
-    if num_media > 0 and "audio" in content_type:
+    if num_media > 0:
 
         media_url = request.values.get("MediaUrl0")
 
@@ -28,31 +34,25 @@ def whatsapp_bot():
             auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
         )
 
-        # Save OGG file
         with open("audio.ogg", "wb") as f:
             f.write(audio_data.content)
 
+        sound = AudioSegment.from_file("audio.ogg", format="ogg")
+        sound.export("audio.wav", format="wav")
+
+        recognizer = sr.Recognizer()
+
+        with sr.AudioFile("audio.wav") as source:
+            audio = recognizer.record(source)
+
         try:
-            # Correct decoding for WhatsApp voice
-            sound = AudioSegment.from_ogg("audio.ogg")
-            sound.export("audio.wav", format="wav")
-
-            recognizer = sr.Recognizer()
-
-            with sr.AudioFile("audio.wav") as source:
-                audio = recognizer.record(source)
-
             text_msg = recognizer.recognize_google(audio).lower()
-
-        except Exception:
+        except:
             msg.body("❌ Could not understand audio.")
             return str(resp)
 
-        finally:
-            if os.path.exists("audio.ogg"):
-                os.remove("audio.ogg")
-            if os.path.exists("audio.wav"):
-                os.remove("audio.wav")
+        os.remove("audio.ogg")
+        os.remove("audio.wav")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -220,3 +220,7 @@ def whatsapp_bot():
         del user_data[sender]
 
     return str(resp)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
