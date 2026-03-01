@@ -2,13 +2,13 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import requests
 import speech_recognition as sr
+from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
-from pydub import AudioSegment   # ADD THIS IMPORT
 
 app = Flask(__name__)
 
-# 🔐 Safe environment variables
+# 🔐 Environment variables (set in Render)
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
@@ -26,45 +26,45 @@ def whatsapp_bot():
     text_msg = request.values.get("Body", "").strip().lower()
 
     # 🎤 ===== VOICE INPUT =====
-   if num_media > 0:
+    if num_media > 0:
 
-    content_type = request.values.get("MediaContentType0", "")
+        content_type = request.values.get("MediaContentType0", "")
 
-    if "audio" not in content_type:
-        msg.body("❌ Please send a voice message.")
-        return str(resp)
+        if "audio" not in content_type:
+            msg.body("❌ Please send a voice message.")
+            return str(resp)
 
-    media_url = request.values.get("MediaUrl0")
+        media_url = request.values.get("MediaUrl0")
 
-    audio_data = requests.get(
-        media_url,
-        auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-    )
+        audio_data = requests.get(
+            media_url,
+            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+        )
 
-    with open("voice.ogg", "wb") as f:
-        f.write(audio_data.content)
+        with open("voice.ogg", "wb") as f:
+            f.write(audio_data.content)
 
-    try:
-        # ✅ Convert OGG → WAV (WhatsApp voice fix)
-        sound = AudioSegment.from_file("voice.ogg", format="ogg")
-        sound.export("voice.wav", format="wav")
+        try:
+            # Convert OGG → WAV
+            sound = AudioSegment.from_file("voice.ogg", format="ogg")
+            sound.export("voice.wav", format="wav")
 
-        recognizer = sr.Recognizer()
+            recognizer = sr.Recognizer()
 
-        with sr.AudioFile("voice.wav") as source:
-            audio = recognizer.record(source)
+            with sr.AudioFile("voice.wav") as source:
+                audio = recognizer.record(source)
 
-        text_msg = recognizer.recognize_google(audio).lower()
+            text_msg = recognizer.recognize_google(audio).lower()
 
-    except Exception as e:
-        msg.body("❌ Could not understand voice.")
-        return str(resp)
+        except Exception:
+            msg.body("❌ Could not understand voice.")
+            return str(resp)
 
-    finally:
-        if os.path.exists("voice.ogg"):
-            os.remove("voice.ogg")
-        if os.path.exists("voice.wav"):
-            os.remove("voice.wav")
+        finally:
+            if os.path.exists("voice.ogg"):
+                os.remove("voice.ogg")
+            if os.path.exists("voice.wav"):
+                os.remove("voice.wav")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -175,6 +175,4 @@ def whatsapp_bot():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
-
-
+    app.run()
