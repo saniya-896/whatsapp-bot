@@ -8,8 +8,8 @@ from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
 
-ACCOUNT_SID = os.environ["ACCOUNT_SID"]
-AUTH_TOKEN = os.environ["AUTH_TOKEN"]
+ACCOUNT_SID = os.getenv["ACCOUNT_SID"]
+AUTH_TOKEN = os.getenv["AUTH_TOKEN"]
 
 user_data = {}
 
@@ -160,3 +160,4 @@ def whatsapp_bot():
         del user_data[sender]
 
     return str(resp)
+
