@@ -13,7 +13,6 @@ AUTH_TOKEN = os.environ["AUTH_TOKEN"]
 
 user_data = {}
 
-
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_bot():
 
@@ -24,8 +23,10 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia", 0))
     text_msg = request.values.get("Body", "").strip().lower()
 
-    # 🎤 ===== VOICE INPUT =====
-    if num_media > 0:
+    # 🎤 ===== VOICE INPUT (ALTERNATIVE METHOD) =====
+    content_type = request.values.get("MediaContentType0", "")
+
+    if num_media > 0 and "audio" in content_type:
 
         media_url = request.values.get("MediaUrl0")
 
@@ -34,25 +35,24 @@ def whatsapp_bot():
             auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
         )
 
-        with open("audio.ogg", "wb") as f:
+        with open("voice.ogg", "wb") as f:
             f.write(audio_data.content)
 
-        sound = AudioSegment.from_file("audio.ogg", format="ogg")
-        sound.export("audio.wav", format="wav")
-
-        recognizer = sr.Recognizer()
-
-        with sr.AudioFile("audio.wav") as source:
-            audio = recognizer.record(source)
-
         try:
+            recognizer = sr.Recognizer()
+
+            with sr.AudioFile("voice.ogg") as source:
+                audio = recognizer.record(source)
+
             text_msg = recognizer.recognize_google(audio).lower()
-        except:
-            msg.body("❌ Could not understand audio.")
+
+        except Exception:
+            msg.body("❌ Could not understand voice.")
             return str(resp)
 
-        os.remove("audio.ogg")
-        os.remove("audio.wav")
+        finally:
+            if os.path.exists("voice.ogg"):
+                os.remove("voice.ogg")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -144,66 +144,6 @@ def whatsapp_bot():
         else:
             msg.body("❌ Invalid option.")
 
-    # 🟢 EDIT NAME
-    elif step == "edit_name":
-
-        user_data[sender]["name"] = text_msg.title()
-        user_data[sender]["step"] = "confirm"
-
-        d = user_data[sender]
-
-        msg.body(
-            f"✅ Name updated.\n\n"
-            f"Service: {d['service']}\n"
-            f"Name: {d['name']}\n"
-            f"Aadhaar: {d['aadhaar']}\n"
-            f"Address: {d['address']}\n\n"
-            "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address"
-        )
-
-    # 🟢 EDIT AADHAAR
-    elif step == "edit_aadhaar":
-
-        user_data[sender]["aadhaar"] = text_msg
-        user_data[sender]["step"] = "confirm"
-
-        d = user_data[sender]
-
-        msg.body(
-            f"✅ Aadhaar updated.\n\n"
-            f"Service: {d['service']}\n"
-            f"Name: {d['name']}\n"
-            f"Aadhaar: {d['aadhaar']}\n"
-            f"Address: {d['address']}\n\n"
-            "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address"
-        )
-
-    # 🟢 EDIT ADDRESS
-    elif step == "edit_address":
-
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
-
-        d = user_data[sender]
-
-        msg.body(
-            f"✅ Address updated.\n\n"
-            f"Service: {d['service']}\n"
-            f"Name: {d['name']}\n"
-            f"Aadhaar: {d['aadhaar']}\n"
-            f"Address: {d['address']}\n\n"
-            "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address"
-        )
-
     # 🟢 FINAL SUBMIT
     elif step == "submit":
 
@@ -220,7 +160,3 @@ def whatsapp_bot():
         del user_data[sender]
 
     return str(resp)
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
