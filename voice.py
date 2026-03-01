@@ -2,18 +2,19 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import requests
 import speech_recognition as sr
-from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
 
+# 🔐 Safe environment variables
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 user_data = {}
 
-@app.route("/whatsapp", methods=['POST'])
+
+@app.route("/whatsapp", methods=["POST"])
 def whatsapp_bot():
 
     resp = MessagingResponse()
@@ -23,12 +24,20 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia", 0))
     text_msg = request.values.get("Body", "").strip().lower()
 
-    # 🎤 ===== VOICE INPUT (ALTERNATIVE METHOD) =====
-    content_type = request.values.get("MediaContentType0", "")
+    # 🎤 ===== VOICE INPUT =====
+    if num_media > 0:
 
-    if num_media > 0 and "audio" in content_type:
+        content_type = request.values.get("MediaContentType0", "")
+
+        if "audio" not in content_type:
+            msg.body("❌ Please send a voice message.")
+            return str(resp)
 
         media_url = request.values.get("MediaUrl0")
+
+        if not ACCOUNT_SID or not AUTH_TOKEN:
+            msg.body("❌ Server configuration error.")
+            return str(resp)
 
         audio_data = requests.get(
             media_url,
@@ -130,15 +139,15 @@ def whatsapp_bot():
             msg.body("⏳ Processing your application...")
 
         elif "2" in text_msg:
-            user_data[sender]["step"] = "edit_name"
+            user_data[sender]["step"] = "name"
             msg.body("Please say your correct name.")
 
         elif "3" in text_msg:
-            user_data[sender]["step"] = "edit_aadhaar"
+            user_data[sender]["step"] = "aadhaar"
             msg.body("Please say your correct Aadhaar number.")
 
         elif "4" in text_msg:
-            user_data[sender]["step"] = "edit_address"
+            user_data[sender]["step"] = "address"
             msg.body("Please say your correct address.")
 
         else:
@@ -162,3 +171,5 @@ def whatsapp_bot():
     return str(resp)
 
 
+if __name__ == "__main__":
+    app.run(debug=True)
