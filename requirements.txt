@@ -1,0 +1,6 @@
+Flask
+twilio
+requests
+SpeechRecognition
+pydub
+gunicorn
