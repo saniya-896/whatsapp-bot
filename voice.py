@@ -6,14 +6,6 @@ from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
 
-app = Flask(__name__)
-
-ACCOUNT_SID = "AC1b4e7d61d4cc2ac9e12fcdae3c6b5e35"
-AUTH_TOKEN = "d079b53422fb76ea0dd7eaaab6eda931"
-
-user_data = {}
-
-
 @app.route("/whatsapp", methods=['POST'])
 def whatsapp_bot():
 
@@ -24,44 +16,43 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia", 0))
     text_msg = request.values.get("Body", "").strip().lower()
 
-   # 🎤 ===== VOICE INPUT =====
-content_type = request.values.get("MediaContentType0", "")
+    # 🎤 ===== VOICE INPUT =====
+    content_type = request.values.get("MediaContentType0", "")
 
-if num_media > 0 and "audio" in content_type:
+    if num_media > 0 and "audio" in content_type:
 
-    media_url = request.values.get("MediaUrl0")
+        media_url = request.values.get("MediaUrl0")
 
-    audio_data = requests.get(
-        media_url,
-        auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-    )
+        audio_data = requests.get(
+            media_url,
+            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+        )
 
-    # Save OGG file
-    with open("audio.ogg", "wb") as f:
-        f.write(audio_data.content)
+        # Save OGG file
+        with open("audio.ogg", "wb") as f:
+            f.write(audio_data.content)
 
-    try:
-        # ✅ Correct decoding for WhatsApp voice (OGG OPUS)
-        sound = AudioSegment.from_ogg("audio.ogg")
-        sound.export("audio.wav", format="wav")
+        try:
+            # Correct decoding for WhatsApp voice
+            sound = AudioSegment.from_ogg("audio.ogg")
+            sound.export("audio.wav", format="wav")
 
-        recognizer = sr.Recognizer()
+            recognizer = sr.Recognizer()
 
-        with sr.AudioFile("audio.wav") as source:
-            audio = recognizer.record(source)
+            with sr.AudioFile("audio.wav") as source:
+                audio = recognizer.record(source)
 
-        text_msg = recognizer.recognize_google(audio).lower()
+            text_msg = recognizer.recognize_google(audio).lower()
 
-    except Exception as e:
-        msg.body("❌ Could not understand audio.")
-        return str(resp)
+        except Exception:
+            msg.body("❌ Could not understand audio.")
+            return str(resp)
 
-    finally:
-        # ✅ Safe cleanup
-        if os.path.exists("audio.ogg"):
-            os.remove("audio.ogg")
-        if os.path.exists("audio.wav"):
-            os.remove("audio.wav")
+        finally:
+            if os.path.exists("audio.ogg"):
+                os.remove("audio.ogg")
+            if os.path.exists("audio.wav"):
+                os.remove("audio.wav")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -229,8 +220,3 @@ if num_media > 0 and "audio" in content_type:
         del user_data[sender]
 
     return str(resp)
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
