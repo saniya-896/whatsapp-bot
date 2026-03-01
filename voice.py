@@ -24,20 +24,25 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia", 0))
     text_msg = request.values.get("Body", "").strip().lower()
 
-    # 🎤 ===== VOICE INPUT =====
-    if num_media > 0:
+   # 🎤 ===== VOICE INPUT =====
+content_type = request.values.get("MediaContentType0", "")
 
-        media_url = request.values.get("MediaUrl0")
+if num_media > 0 and "audio" in content_type:
 
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-        )
+    media_url = request.values.get("MediaUrl0")
 
-        with open("audio.ogg", "wb") as f:
-            f.write(audio_data.content)
+    audio_data = requests.get(
+        media_url,
+        auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+    )
 
-        sound = AudioSegment.from_file("audio.ogg", format="ogg")
+    # Save OGG file
+    with open("audio.ogg", "wb") as f:
+        f.write(audio_data.content)
+
+    try:
+        # ✅ Correct decoding for WhatsApp voice (OGG OPUS)
+        sound = AudioSegment.from_ogg("audio.ogg")
         sound.export("audio.wav", format="wav")
 
         recognizer = sr.Recognizer()
@@ -45,14 +50,18 @@ def whatsapp_bot():
         with sr.AudioFile("audio.wav") as source:
             audio = recognizer.record(source)
 
-        try:
-            text_msg = recognizer.recognize_google(audio).lower()
-        except:
-            msg.body("❌ Could not understand audio.")
-            return str(resp)
+        text_msg = recognizer.recognize_google(audio).lower()
 
-        os.remove("audio.ogg")
-        os.remove("audio.wav")
+    except Exception as e:
+        msg.body("❌ Could not understand audio.")
+        return str(resp)
+
+    finally:
+        # ✅ Safe cleanup
+        if os.path.exists("audio.ogg"):
+            os.remove("audio.ogg")
+        if os.path.exists("audio.wav"):
+            os.remove("audio.wav")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -224,3 +233,4 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
