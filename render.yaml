@@ -2,8 +2,9 @@ services:
   - type: web
     name: whatsapp-bot
     env: python
+
     buildCommand: |
       pip install -r requirements.txt
-      apt-get update
-      apt-get install -y ffmpeg
-    startCommand: gunicorn voice:app
+
+    startCommand: |
+      apt-get update && apt-get install -y ffmpeg && gunicorn voice:app
