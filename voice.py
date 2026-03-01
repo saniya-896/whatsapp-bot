@@ -1,32 +1,31 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+import os
 
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "WhatsApp Text Bot Running ✅"
+    return "WhatsApp Bot Running ✅"
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
     incoming_msg = request.form.get("Body", "").strip().lower()
     resp = MessagingResponse()
-    msg = resp.message()
 
-    # 🧠 Simple auto-replies
     if incoming_msg in ["hi", "hello"]:
-        msg.body("Hello 👋 Welcome to E-Akshaya WhatsApp Service")
-
-    elif "name" in incoming_msg:
-        msg.body("Please type your full name.")
+        resp.message("Hello 👋 Welcome to E-Akshaya WhatsApp Service")
 
     elif "help" in incoming_msg:
-        msg.body("Available services:\n1️⃣ Certificate Apply\n2️⃣ Aadhaar Services\n3️⃣ Bill Payment")
+        resp.message("Available services:\n1️⃣ Certificate Apply\n2️⃣ Aadhaar Services\n3️⃣ Bill Payment")
 
     else:
-        msg.body("Thanks! We received your message ✅")
+        resp.message("Message received ✅")
 
     return str(resp)
 
+
+# ⭐ IMPORTANT FOR RENDER ⭐
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
