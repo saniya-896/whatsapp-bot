@@ -5,4 +5,5 @@ services:
     buildCommand: |
       pip install -r requirements.txt
       apt-get update && apt-get install -y ffmpeg
+      
     startCommand: gunicorn voice:app
