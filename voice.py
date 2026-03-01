@@ -4,6 +4,7 @@ import requests
 import speech_recognition as sr
 import os
 from requests.auth import HTTPBasicAuth
+from pydub import AudioSegment   # ADD THIS IMPORT
 
 app = Flask(__name__)
 
@@ -50,8 +51,12 @@ def whatsapp_bot():
         try:
             recognizer = sr.Recognizer()
 
-            with sr.AudioFile("voice.ogg") as source:
-                audio = recognizer.record(source)
+           # Convert OGG → WAV (WhatsApp voice fix)
+sound = AudioSegment.from_file("voice.ogg", format="ogg")
+sound.export("voice.wav", format="wav")
+
+with sr.AudioFile("voice.wav") as source:
+    audio = recognizer.record(source)
 
             text_msg = recognizer.recognize_google(audio).lower()
 
@@ -59,9 +64,11 @@ def whatsapp_bot():
             msg.body("❌ Could not understand voice.")
             return str(resp)
 
-        finally:
-            if os.path.exists("voice.ogg"):
-                os.remove("voice.ogg")
+       finally:
+    if os.path.exists("voice.ogg"):
+        os.remove("voice.ogg")
+    if os.path.exists("voice.wav"):
+        os.remove("voice.wav")
 
     # 🟢 NEW USER → MENU
     if sender not in user_data:
@@ -173,3 +180,4 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
