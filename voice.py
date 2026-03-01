@@ -8,9 +8,6 @@ def whatsapp_bot():
     msg = request.form.get("Body")
 
     response = MessagingResponse()
-    response.message("Hello! Your bot is working ✅")
+    response.message("Hello! Your bot is LIVE on Render ✅")
 
     return str(response)
-
-if __name__ == "__main__":
-    app.run(port=5000)
