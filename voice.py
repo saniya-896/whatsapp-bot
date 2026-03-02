@@ -5,7 +5,11 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
-
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+    
 app = Flask(__name__)
 
 ACCOUNT_SID ="AC1b4e7d61d4cc2ac9e12fcdae3c6b5e35"
@@ -224,3 +228,4 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
