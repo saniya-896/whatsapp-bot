@@ -3,7 +3,6 @@ from twilio.twiml.messaging_response import MessagingResponse
 import requests
 import speech_recognition as sr
 from pydub import AudioSegment
-import os
 from requests.auth import HTTPBasicAuth
 if __name__ == "__main__":
     import os
@@ -228,4 +227,5 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
