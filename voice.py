@@ -11,9 +11,8 @@ if __name__ == "__main__":
     
 app = Flask(__name__)
 
-ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
-AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
-
+ACCOUNT_SID = "AC7fec2bccc23042563cfaab87940a1a54"
+AUTH_TOKEN = "55030342582ae59b94e94f73fbc4cd50"
 user_data = {}
 
 
@@ -227,6 +226,7 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
