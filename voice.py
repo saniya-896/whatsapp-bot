@@ -21,8 +21,17 @@ def whatsapp_bot():
     msg = resp.message()
 
     sender = request.values.get("From")
+
+    body = request.values.get("Body")
+    text_msg = (body or "").strip().lower()
+
     num_media = int(request.values.get("NumMedia", 0))
-    text_msg = request.values.get("Body", "").strip().lower()
+
+    # 🔄 Restart command
+    if text_msg in ["menu", "restart", "start"]:
+        user_data.pop(sender, None)
+        resp.message("🔄 Service restarted. Please type *Hi*.")
+        return str(resp)
 
     # 🎤 Voice Input
     if num_media > 0:
@@ -44,6 +53,7 @@ def whatsapp_bot():
             f.write(audio_data.content)
 
         try:
+
             sound = AudioSegment.from_file("voice.ogg", format="ogg")
             sound.export("voice.wav", format="wav")
 
@@ -55,12 +65,14 @@ def whatsapp_bot():
             text_msg = r.recognize_google(audio).lower()
 
         except:
-            msg.body("❌ Could not understand voice.")
+            msg.body("❌ Voice not clear. Please send again.")
             return str(resp)
 
         finally:
+
             if os.path.exists("voice.ogg"):
                 os.remove("voice.ogg")
+
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
@@ -77,6 +89,7 @@ def whatsapp_bot():
                 "3️⃣ Ration Card\n\n"
                 "Reply with option number."
             )
+
         else:
             msg.body("👋 Please type *Hi* or *Hello* to start.")
 
@@ -87,17 +100,17 @@ def whatsapp_bot():
     # 🟢 MENU
     if step == "menu":
 
-        if text_msg == "1":
+        if "1" in text_msg:
             user_data[sender]["service"] = "Pension Application"
             user_data[sender]["step"] = "name"
             msg.body("Please say your name.")
 
-        elif text_msg == "2":
+        elif "2" in text_msg:
             user_data[sender]["service"] = "Income Certificate"
             user_data[sender]["step"] = "name"
             msg.body("Please say your name.")
 
-        elif text_msg == "3":
+        elif "3" in text_msg:
             user_data[sender]["service"] = "Ration Card"
             user_data[sender]["step"] = "name"
             msg.body("Please say your name.")
@@ -110,6 +123,7 @@ def whatsapp_bot():
 
         user_data[sender]["name"] = text_msg.title()
         user_data[sender]["step"] = "aadhaar"
+
         msg.body("Please say your Aadhaar number.")
 
     # 🟢 AADHAAR
@@ -117,6 +131,7 @@ def whatsapp_bot():
 
         user_data[sender]["aadhaar"] = text_msg
         user_data[sender]["step"] = "address"
+
         msg.body("Please say your address.")
 
     # 🟢 ADDRESS
@@ -142,7 +157,7 @@ def whatsapp_bot():
     # 🟢 CONFIRM
     elif step == "confirm":
 
-        if text_msg == "1":
+        if "1" in text_msg:
 
             d = user_data[sender]
             application_id = "AKS-" + str(random.randint(100000, 999999))
@@ -157,15 +172,15 @@ def whatsapp_bot():
 
             del user_data[sender]
 
-        elif text_msg == "2":
+        elif "2" in text_msg:
             user_data[sender]["step"] = "edit_name"
             msg.body("Please say your correct name.")
 
-        elif text_msg == "3":
+        elif "3" in text_msg:
             user_data[sender]["step"] = "edit_aadhaar"
             msg.body("Please say your correct Aadhaar number.")
 
-        elif text_msg == "4":
+        elif "4" in text_msg:
             user_data[sender]["step"] = "edit_address"
             msg.body("Please say your correct address.")
 
