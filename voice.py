@@ -4,8 +4,8 @@ import requests
 import speech_recognition as sr
 from pydub import AudioSegment
 import os
+import random
 from requests.auth import HTTPBasicAuth
-import time
 
 app = Flask(__name__)
 
@@ -24,7 +24,7 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia", 0))
     text_msg = request.values.get("Body", "").strip().lower()
 
-    # 🎤 VOICE INPUT
+    # 🎤 Voice Input
     if num_media > 0:
 
         content_type = request.values.get("MediaContentType0", "")
@@ -64,7 +64,7 @@ def whatsapp_bot():
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
-    # 🟢 START BOT ONLY WITH HI / HELLO
+    # 🟢 Start only with Hi / Hello
     if sender not in user_data:
 
         if text_msg in ["hi", "hello"]:
@@ -142,24 +142,21 @@ def whatsapp_bot():
     # 🟢 CONFIRM
     elif step == "confirm":
 
-     if text_msg == "1":
+        if text_msg == "1":
 
-    msg.body("⏳ Processing your application... Please wait.")
+            d = user_data[sender]
+            application_id = "AKS-" + str(random.randint(100000, 999999))
 
-    time.sleep(30)
+            msg.body(
+                f"✅ {d['service']} Submitted Successfully!\n\n"
+                f"Name: {d['name']}\n"
+                f"Aadhaar: {d['aadhaar']}\n"
+                f"Address: {d['address']}\n\n"
+                f"Application ID: {application_id}"
+            )
 
-    d = user_data[sender]
+            del user_data[sender]
 
-    msg.body(
-        f"✅ {d['service']} Submitted Successfully!\n\n"
-        f"Name: {d['name']}\n"
-        f"Aadhaar: {d['aadhaar']}\n"
-        f"Address: {d['address']}\n\n"
-        f"Application ID: AKS{sender[-4:]}"
-    )
-
-    del user_data[sender]
-    
         elif text_msg == "2":
             user_data[sender]["step"] = "edit_name"
             msg.body("Please say your correct name.")
@@ -235,24 +232,8 @@ def whatsapp_bot():
             "4️⃣ Edit Address"
         )
 
-    # 🟢 SUBMIT
-    elif step == "submit":
-
-        d = user_data[sender]
-
-        msg.body(
-            f"✅ {d['service']} Submitted Successfully!\n\n"
-            f"Name: {d['name']}\n"
-            f"Aadhaar: {d['aadhaar']}\n"
-            f"Address: {d['address']}\n\n"
-            f"Application ID: AKS{sender[-4:]}"
-        )
-
-        del user_data[sender]
-
     return str(resp)
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-
