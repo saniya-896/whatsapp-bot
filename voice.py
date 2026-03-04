@@ -14,6 +14,19 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 user_data = {}
 
+
+# ⭐ Health check (keeps Render awake)
+@app.route("/")
+def home():
+    return "WhatsApp Bot Running"
+
+
+# ⭐ Status endpoint
+@app.route("/status")
+def status():
+    return {"status": "running"}
+
+
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_bot():
 
@@ -29,16 +42,19 @@ def whatsapp_bot():
 
     print("User:", sender, "Message:", text_msg)
 
+    # ⭐ Safety check
+    if not text_msg and num_media == 0:
+        resp.message("Please send a message.")
+        return str(resp)
+
     # Restart command
     if text_msg in ["menu", "restart", "start"]:
         user_data.pop(sender, None)
         resp.message("🔄 Service restarted. Please type *Hi*.")
         return str(resp)
 
-    # 🎤 Voice Handling
+    # 🎤 Voice handling
     if num_media > 0:
-
-        print("Voice message received")
 
         content_type = request.values.get("MediaContentType0", "")
 
@@ -50,7 +66,8 @@ def whatsapp_bot():
 
         audio_data = requests.get(
             media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN),
+            timeout=10
         )
 
         with open("voice.ogg", "wb") as f:
@@ -68,10 +85,7 @@ def whatsapp_bot():
 
             text_msg = recognizer.recognize_google(audio).lower()
 
-            print("Voice converted to:", text_msg)
-
-        except Exception as e:
-            print("Voice error:", e)
+        except:
             msg.body("❌ Could not understand voice.")
             return str(resp)
 
@@ -83,7 +97,7 @@ def whatsapp_bot():
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
-    # Start only with Hi / Hello
+    # Start bot
     if sender not in user_data:
 
         if text_msg in ["hi", "hello"]:
@@ -199,7 +213,6 @@ def whatsapp_bot():
 
         user_data[sender]["name"] = text_msg.title()
         user_data[sender]["step"] = "confirm"
-
         msg.body("Name updated. Please confirm again (1-4).")
 
     # EDIT AADHAAR
@@ -207,7 +220,6 @@ def whatsapp_bot():
 
         user_data[sender]["aadhaar"] = text_msg
         user_data[sender]["step"] = "confirm"
-
         msg.body("Aadhaar updated. Please confirm again (1-4).")
 
     # EDIT ADDRESS
@@ -215,13 +227,11 @@ def whatsapp_bot():
 
         user_data[sender]["address"] = text_msg
         user_data[sender]["step"] = "confirm"
-
         msg.body("Address updated. Please confirm again (1-4).")
 
     return str(resp)
 
 
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
