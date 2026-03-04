@@ -1,15 +1,8 @@
 services:
   - type: web
-    name: whatsapp-akshaya-bot
     env: python
-    plan: free
     buildCommand: |
       apt-get update
       apt-get install -y ffmpeg
       pip install -r requirements.txt
     startCommand: gunicorn voice:app --bind 0.0.0.0:$PORT --workers 1
-    envVars:
-      - key: ACCOUNT_SID
-        sync: false
-      - key: AUTH_TOKEN
-        sync: false
