@@ -12,22 +12,20 @@ app = Flask(__name__)
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
+# ffmpeg path for Render
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-
-# Health check
+# Home
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
-
 
 # Status
 @app.route("/status")
 def status():
     return {"status": "running"}
-
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_bot():
@@ -41,56 +39,68 @@ def whatsapp_bot():
 
     num_media = int(request.values.get("NumMedia") or 0)
 
-    # Voice handling
+    print("User:", sender, "Message:", text_msg)
+
+    # 🎤 Voice message handling
     if num_media > 0:
 
         content_type = request.values.get("MediaContentType0", "")
 
-        if "audio" not in content_type:
-            msg.body("Please send a voice message.")
+        if "audio" in content_type:
+
+            media_url = request.values.get("MediaUrl0")
+
+            audio = requests.get(
+                media_url,
+                auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+            )
+
+            with open("voice.ogg", "wb") as f:
+                f.write(audio.content)
+
+            try:
+
+                sound = AudioSegment.from_file("voice.ogg", format="ogg")
+                sound.export("voice.wav", format="wav")
+
+                recognizer = sr.Recognizer()
+
+                with sr.AudioFile("voice.wav") as source:
+                    audio_data = recognizer.record(source)
+
+                text_msg = recognizer.recognize_google(audio_data).lower()
+
+                print("Voice converted:", text_msg)
+
+            except:
+                msg.body("❌ Sorry, could not understand voice.")
+                return str(resp)
+
+            finally:
+
+                if os.path.exists("voice.ogg"):
+                    os.remove("voice.ogg")
+
+                if os.path.exists("voice.wav"):
+                    os.remove("voice.wav")
+
+        else:
+            msg.body("❌ Please send a voice message.")
             return str(resp)
 
-        media_url = request.values.get("MediaUrl0")
+    # Restart command
+    if text_msg in ["menu", "restart", "start"]:
 
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+        user_data.pop(sender, None)
+
+        msg.body(
+            "🔄 Restarted.\n\n"
+            "Type *Hi* to start again."
         )
 
-        with open("voice.ogg", "wb") as f:
-            f.write(audio_data.content)
-
-        try:
-
-            sound = AudioSegment.from_file("voice.ogg", format="ogg")
-            sound.export("voice.wav", format="wav")
-
-            recognizer = sr.Recognizer()
-
-            with sr.AudioFile("voice.wav") as source:
-                audio = recognizer.record(source)
-
-            text_msg = recognizer.recognize_google(audio).lower()
-
-        except:
-            msg.body("Could not understand voice.")
-            return str(resp)
-
-        finally:
-
-            if os.path.exists("voice.ogg"):
-                os.remove("voice.ogg")
-
-            if os.path.exists("voice.wav"):
-                os.remove("voice.wav")
-
-    # restart
-    if text_msg in ["menu", "restart", "start"]:
-        user_data.pop(sender, None)
-        msg.body("Service restarted. Type Hi to start.")
         return str(resp)
 
-    # first message
+    # First interaction
     if sender not in user_data:
 
         if text_msg in ["hi", "hello"]:
@@ -98,15 +108,15 @@ def whatsapp_bot():
             user_data[sender] = {"step": "menu"}
 
             msg.body(
-                "Welcome to E-Akshaya Digital Service\n\n"
-                "1 Pension Application\n"
-                "2 Income Certificate\n"
-                "3 Ration Card\n\n"
-                "Reply with option number."
+                "🙏 Welcome to E-Akshaya Digital Service\n\n"
+                "1️⃣ Pension Application\n"
+                "2️⃣ Income Certificate\n"
+                "3️⃣ Ration Card\n\n"
+                "Reply with option number or voice."
             )
 
         else:
-            msg.body("Please type Hi to start.")
+            msg.body("👋 Please type or say *Hi* to start.")
 
         return str(resp)
 
@@ -116,22 +126,28 @@ def whatsapp_bot():
     if step == "menu":
 
         if "1" in text_msg:
+
             user_data[sender]["service"] = "Pension"
             user_data[sender]["step"] = "name"
-            msg.body("Please enter your name.")
+
+            msg.body("Please say your name.")
 
         elif "2" in text_msg:
+
             user_data[sender]["service"] = "Income Certificate"
             user_data[sender]["step"] = "name"
-            msg.body("Please enter your name.")
+
+            msg.body("Please say your name.")
 
         elif "3" in text_msg:
+
             user_data[sender]["service"] = "Ration Card"
             user_data[sender]["step"] = "name"
-            msg.body("Please enter your name.")
+
+            msg.body("Please say your name.")
 
         else:
-            msg.body("Invalid option.")
+            msg.body("❌ Invalid option.")
 
     # NAME
     elif step == "name":
@@ -142,43 +158,47 @@ def whatsapp_bot():
 
         if service == "Pension":
             user_data[sender]["step"] = "age"
-            msg.body("Enter your age.")
+            msg.body("Please say your age.")
 
         elif service == "Income Certificate":
             user_data[sender]["step"] = "occupation"
-            msg.body("Enter your occupation.")
+            msg.body("Please say your occupation.")
 
         elif service == "Ration Card":
-            user_data[sender]["step"] = "family_members"
+            user_data[sender]["step"] = "family"
             msg.body("How many family members?")
 
-    # AGE (PENSION)
+    # AGE
     elif step == "age":
 
         user_data[sender]["age"] = text_msg
         user_data[sender]["step"] = "aadhaar"
-        msg.body("Enter Aadhaar number.")
 
-    # OCCUPATION (INCOME)
+        msg.body("Please say your Aadhaar number.")
+
+    # OCCUPATION
     elif step == "occupation":
 
         user_data[sender]["occupation"] = text_msg
-        user_data[sender]["step"] = "family_income"
-        msg.body("Enter family monthly income.")
+        user_data[sender]["step"] = "income"
 
-    # FAMILY INCOME
-    elif step == "family_income":
+        msg.body("Please say your family income.")
+
+    # INCOME
+    elif step == "income":
 
         user_data[sender]["income"] = text_msg
         user_data[sender]["step"] = "aadhaar"
-        msg.body("Enter Aadhaar number.")
 
-    # FAMILY MEMBERS (RATION)
-    elif step == "family_members":
+        msg.body("Please say your Aadhaar number.")
 
-        user_data[sender]["family_members"] = text_msg
+    # FAMILY MEMBERS
+    elif step == "family":
+
+        user_data[sender]["family"] = text_msg
         user_data[sender]["step"] = "aadhaar"
-        msg.body("Enter Aadhaar number.")
+
+        msg.body("Please say your Aadhaar number.")
 
     # AADHAAR
     elif step == "aadhaar":
@@ -188,19 +208,22 @@ def whatsapp_bot():
         service = user_data[sender]["service"]
 
         if service == "Pension":
+
             user_data[sender]["step"] = "bank"
-            msg.body("Enter bank account number.")
+            msg.body("Please say your bank account number.")
 
         else:
+
             user_data[sender]["step"] = "address"
-            msg.body("Enter your address.")
+            msg.body("Please say your address.")
 
     # BANK
     elif step == "bank":
 
         user_data[sender]["bank"] = text_msg
         user_data[sender]["step"] = "address"
-        msg.body("Enter your address.")
+
+        msg.body("Please say your address.")
 
     # ADDRESS
     elif step == "address":
@@ -219,16 +242,14 @@ def whatsapp_bot():
             summary += f"Occupation: {d['occupation']}\nIncome: {d['income']}\n"
 
         if d["service"] == "Ration Card":
-            summary += f"Family Members: {d['family_members']}\n"
+            summary += f"Family Members: {d['family']}\n"
 
         summary += f"Aadhaar: {d['aadhaar']}\nAddress: {d['address']}"
 
         msg.body(
-            f"Confirm Details:\n\n{summary}\n\n"
-            "1 Confirm\n"
-            "2 Edit Name\n"
-            "3 Edit Aadhaar\n"
-            "4 Edit Address"
+            f"📋 Confirm Details\n\n{summary}\n\n"
+            "1️⃣ Confirm\n"
+            "2️⃣ Restart"
         )
 
     # CONFIRM
@@ -236,36 +257,25 @@ def whatsapp_bot():
 
         if "1" in text_msg:
 
-            d = user_data[sender]
-
             app_id = "AKS-" + str(random.randint(100000, 999999))
 
             msg.body(
-                f"Application Submitted Successfully\n\n"
+                f"✅ Application Submitted!\n\n"
                 f"Application ID: {app_id}\n\n"
-                "Our Akshaya team will contact you."
+                "Akshaya team will process your request."
             )
 
             del user_data[sender]
 
-        elif "2" in text_msg:
-            user_data[sender]["step"] = "name"
-            msg.body("Enter correct name.")
-
-        elif "3" in text_msg:
-            user_data[sender]["step"] = "aadhaar"
-            msg.body("Enter correct Aadhaar.")
-
-        elif "4" in text_msg:
-            user_data[sender]["step"] = "address"
-            msg.body("Enter correct address.")
-
         else:
-            msg.body("Invalid option.")
+            user_data.pop(sender, None)
+            msg.body("Restarted. Say Hi again.")
 
     return str(resp)
 
 
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 10000))
+
     app.run(host="0.0.0.0", port=port)
