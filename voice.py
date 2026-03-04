@@ -135,26 +135,67 @@ def whatsapp_bot():
         )
 
     # 🟢 CONFIRM
-    elif step == "confirm":
+   # 🟢 EDIT NAME
+elif step == "edit_name":
 
-        if "1" in text_msg:
-            user_data[sender]["step"] = "submit"
-            msg.body("⏳ Processing your application...")
+    user_data[sender]["name"] = text_msg.title()
+    user_data[sender]["step"] = "confirm"
 
-        elif "2" in text_msg:
-            user_data[sender]["step"] = "name"
-            msg.body("Please say your correct name.")
+    d = user_data[sender]
 
-        elif "3" in text_msg:
-            user_data[sender]["step"] = "aadhaar"
-            msg.body("Please say your correct Aadhaar number.")
+    msg.body(
+        f"📋 Updated Details:\n\n"
+        f"Service: {d['service']}\n"
+        f"Name: {d['name']}\n"
+        f"Aadhaar: {d['aadhaar']}\n"
+        f"Address: {d['address']}\n\n"
+        "1️⃣ Confirm\n"
+        "2️⃣ Edit Name\n"
+        "3️⃣ Edit Aadhaar\n"
+        "4️⃣ Edit Address"
+    )
 
-        elif "4" in text_msg:
-            user_data[sender]["step"] = "address"
-            msg.body("Please say your correct address.")
 
-        else:
-            msg.body("❌ Invalid option.")
+# 🟢 EDIT AADHAAR
+elif step == "edit_aadhaar":
+
+    user_data[sender]["aadhaar"] = text_msg
+    user_data[sender]["step"] = "confirm"
+
+    d = user_data[sender]
+
+    msg.body(
+        f"📋 Updated Details:\n\n"
+        f"Service: {d['service']}\n"
+        f"Name: {d['name']}\n"
+        f"Aadhaar: {d['aadhaar']}\n"
+        f"Address: {d['address']}\n\n"
+        "1️⃣ Confirm\n"
+        "2️⃣ Edit Name\n"
+        "3️⃣ Edit Aadhaar\n"
+        "4️⃣ Edit Address"
+    )
+
+
+# 🟢 EDIT ADDRESS
+elif step == "edit_address":
+
+    user_data[sender]["address"] = text_msg
+    user_data[sender]["step"] = "confirm"
+
+    d = user_data[sender]
+
+    msg.body(
+        f"📋 Updated Details:\n\n"
+        f"Service: {d['service']}\n"
+        f"Name: {d['name']}\n"
+        f"Aadhaar: {d['aadhaar']}\n"
+        f"Address: {d['address']}\n\n"
+        "1️⃣ Confirm\n"
+        "2️⃣ Edit Name\n"
+        "3️⃣ Edit Aadhaar\n"
+        "4️⃣ Edit Address"
+    )
 
     # 🟢 FINAL SUBMIT
     elif step == "submit":
@@ -175,4 +216,5 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
 
