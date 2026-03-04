@@ -5,6 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import os
 from requests.auth import HTTPBasicAuth
+import time
 
 app = Flask(__name__)
 
@@ -141,10 +142,24 @@ def whatsapp_bot():
     # 🟢 CONFIRM
     elif step == "confirm":
 
-        if text_msg == "1":
-            user_data[sender]["step"] = "submit"
-            msg.body("⏳ Processing your application...")
+     if text_msg == "1":
 
+    msg.body("⏳ Processing your application... Please wait.")
+
+    time.sleep(30)
+
+    d = user_data[sender]
+
+    msg.body(
+        f"✅ {d['service']} Submitted Successfully!\n\n"
+        f"Name: {d['name']}\n"
+        f"Aadhaar: {d['aadhaar']}\n"
+        f"Address: {d['address']}\n\n"
+        f"Application ID: AKS{sender[-4:]}"
+    )
+
+    del user_data[sender]
+    
         elif text_msg == "2":
             user_data[sender]["step"] = "edit_name"
             msg.body("Please say your correct name.")
@@ -240,3 +255,4 @@ def whatsapp_bot():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
