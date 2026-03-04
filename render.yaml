@@ -1,6 +1,7 @@
 services:
   - type: web
     env: python
+    plan: free
     buildCommand: |
       apt-get update
       apt-get install -y ffmpeg
