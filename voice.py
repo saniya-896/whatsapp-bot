@@ -12,7 +12,7 @@ app = Flask(__name__)
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
-# Required for voice on Render
+# Required for voice conversion
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
@@ -37,7 +37,7 @@ def whatsapp_bot():
 
     print("User:", sender, "Message:", text_msg)
 
-    # Restart
+    # Restart command
     if text_msg in ["menu", "restart", "start"]:
         user_data.pop(sender, None)
         msg.body("🔄 Service restarted. Please type *Hi*.")
@@ -113,19 +113,16 @@ def whatsapp_bot():
     if step == "menu":
 
         if text_msg == "1":
-
             user_data[sender]["service"] = "Pension Application"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
 
         elif text_msg == "2":
-
             user_data[sender]["service"] = "Income Certificate"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
 
         elif text_msg == "3":
-
             user_data[sender]["service"] = "Ration Card"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
@@ -152,14 +149,14 @@ def whatsapp_bot():
             user_data[sender]["step"] = "family_members"
             msg.body("👨‍👩‍👧‍👦 How many family members?")
 
-    # AGE (PENSION)
+    # AGE
     elif step == "age":
 
         user_data[sender]["age"] = text_msg
         user_data[sender]["step"] = "aadhaar"
         msg.body("🆔 Please say your Aadhaar number.")
 
-    # OCCUPATION (INCOME)
+    # OCCUPATION
     elif step == "occupation":
 
         user_data[sender]["occupation"] = text_msg
@@ -223,7 +220,10 @@ def whatsapp_bot():
         msg.body(
             f"📋 Confirm Your Details\n\n{summary}\n\n"
             "1️⃣ Confirm\n"
-            "2️⃣ Restart"
+            "2️⃣ Edit Name\n"
+            "3️⃣ Edit Aadhaar\n"
+            "4️⃣ Edit Address\n"
+            "5️⃣ Restart"
         )
 
     # CONFIRM
@@ -241,10 +241,42 @@ def whatsapp_bot():
 
             del user_data[sender]
 
-        else:
+        elif text_msg == "2":
+            user_data[sender]["step"] = "edit_name"
+            msg.body("✏️ Enter correct name.")
 
+        elif text_msg == "3":
+            user_data[sender]["step"] = "edit_aadhaar"
+            msg.body("✏️ Enter correct Aadhaar.")
+
+        elif text_msg == "4":
+            user_data[sender]["step"] = "edit_address"
+            msg.body("✏️ Enter correct address.")
+
+        elif text_msg == "5":
             user_data.pop(sender, None)
-            msg.body("🔄 Restarted. Please type *Hi* again.")
+            msg.body("🔄 Restarted. Type *Hi* again.")
+
+    # EDIT NAME
+    elif step == "edit_name":
+
+        user_data[sender]["name"] = text_msg.title()
+        user_data[sender]["step"] = "confirm"
+        msg.body("✅ Name updated. Confirm again.")
+
+    # EDIT AADHAAR
+    elif step == "edit_aadhaar":
+
+        user_data[sender]["aadhaar"] = text_msg
+        user_data[sender]["step"] = "confirm"
+        msg.body("✅ Aadhaar updated. Confirm again.")
+
+    # EDIT ADDRESS
+    elif step == "edit_address":
+
+        user_data[sender]["address"] = text_msg
+        user_data[sender]["step"] = "confirm"
+        msg.body("✅ Address updated. Confirm again.")
 
     return str(resp)
 
