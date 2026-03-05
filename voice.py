@@ -5,6 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import os
 import random
+import sqlite3
 from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
@@ -16,11 +17,35 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
+# ---------------- DATABASE ----------------
+
+def init_db():
+    conn = sqlite3.connect("applications.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS applications(
+        app_id TEXT,
+        service TEXT,
+        name TEXT,
+        aadhaar TEXT,
+        address TEXT,
+        status TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ---------------- HOME ----------------
 
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
 
+# ---------------- BOT ----------------
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_bot():
@@ -28,35 +53,76 @@ def whatsapp_bot():
     resp = MessagingResponse()
     msg = resp.message()
 
-    sender = request.values.get("From")
-    body = request.values.get("Body")
+    sender = request.values.get("From","")
+    body = request.values.get("Body","")
 
-    text_msg = (body or "").strip().lower()
-    num_media = int(request.values.get("NumMedia") or 0)
+    text_msg = body.strip().lower()
+    num_media = int(request.values.get("NumMedia",0))
 
     print("User:", sender, "Message:", text_msg)
 
-    # MENU / RESTART
-    if text_msg in ["menu", "restart", "start"]:
-        user_data.pop(sender, None)
+# ---------------- STATUS CHECK ----------------
 
-        user_data[sender] = {"step": "menu"}
+    if text_msg.startswith("status"):
+
+        try:
+
+            app_id = text_msg.split(" ")[1]
+
+            conn = sqlite3.connect("applications.db")
+            cursor = conn.cursor()
+
+            cursor.execute(
+            "SELECT service,name,status FROM applications WHERE app_id=?",
+            (app_id,)
+            )
+
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+
+                service,name,status = result
+
+                msg.body(
+                f"📄 Application Found\n\n"
+                f"Application ID: {app_id}\n"
+                f"Name: {name}\n"
+                f"Service: {service}\n"
+                f"Status: {status}"
+                )
+
+            else:
+                msg.body("❌ Application not found.")
+
+        except:
+            msg.body("⚠️ Use format: status AKS-123456")
+
+        return str(resp)
+
+# ---------------- MENU / RESTART ----------------
+
+    if text_msg in ["menu","restart","start"]:
+
+        user_data.pop(sender,None)
+        user_data[sender]={"step":"menu"}
 
         msg.body(
-            "🙏 *Welcome to E-Akshaya Digital Service*\n\n"
-            "📋 Available Services\n\n"
-            "1️⃣ Pension Application\n"
-            "2️⃣ Income Certificate\n"
-            "3️⃣ Ration Card\n\n"
-            "Reply with option number."
+        "🙏 *Welcome to E-Akshaya Digital Service*\n\n"
+        "📋 Available Services\n\n"
+        "1️⃣ Pension Application\n"
+        "2️⃣ Income Certificate\n"
+        "3️⃣ Ration Card\n\n"
+        "Reply with option number."
         )
 
         return str(resp)
 
-    # VOICE HANDLING
+# ---------------- VOICE HANDLING ----------------
+
     if num_media > 0:
 
-        content_type = request.values.get("MediaContentType0", "")
+        content_type = request.values.get("MediaContentType0","")
 
         if "audio" not in content_type:
             msg.body("❌ Please send a voice message.")
@@ -64,18 +130,19 @@ def whatsapp_bot():
 
         media_url = request.values.get("MediaUrl0")
 
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-        )
-
-        with open("voice.ogg", "wb") as f:
-            f.write(audio_data.content)
-
         try:
 
+            audio_data = requests.get(
+            media_url,
+            auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN),
+            timeout=10
+            )
+
+            with open("voice.ogg","wb") as f:
+                f.write(audio_data.content)
+
             sound = AudioSegment.from_ogg("voice.ogg")
-            sound.export("voice.wav", format="wav")
+            sound.export("voice.wav",format="wav")
 
             recognizer = sr.Recognizer()
 
@@ -85,7 +152,7 @@ def whatsapp_bot():
             text_msg = recognizer.recognize_google(audio).lower()
 
         except:
-            msg.body("❌ Could not understand voice.")
+            msg.body("⚠️ Could not understand voice.")
             return str(resp)
 
         finally:
@@ -96,205 +163,252 @@ def whatsapp_bot():
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
-    # FIRST TIME START
+# ---------------- FIRST START ----------------
+
     if sender not in user_data:
 
-        user_data[sender] = {"step": "menu"}
+        user_data[sender]={"step":"menu"}
 
         msg.body(
-            "🙏 *Welcome to E-Akshaya Digital Service*\n\n"
-            "📋 Available Services\n\n"
-            "1️⃣ Pension Application\n"
-            "2️⃣ Income Certificate\n"
-            "3️⃣ Ration Card\n\n"
-            "Reply with option number."
+        "🙏 *Welcome to E-Akshaya Digital Service*\n\n"
+        "📋 Available Services\n\n"
+        "1️⃣ Pension Application\n"
+        "2️⃣ Income Certificate\n"
+        "3️⃣ Ration Card\n\n"
+        "Reply with option number."
         )
 
         return str(resp)
 
-    step = user_data[sender]["step"]
+    step=user_data[sender].get("step")
 
-    # MENU
-    if step == "menu":
+# ---------------- MENU ----------------
 
-        if text_msg == "1":
-            user_data[sender]["service"] = "Pension Application"
-            user_data[sender]["step"] = "name"
+    if step=="menu":
+
+        if text_msg=="1":
+
+            user_data[sender]["service"]="Pension Application"
+            user_data[sender]["step"]="name"
             msg.body("👤 Please enter your name.")
 
-        elif text_msg == "2":
-            user_data[sender]["service"] = "Income Certificate"
-            user_data[sender]["step"] = "name"
+        elif text_msg=="2":
+
+            user_data[sender]["service"]="Income Certificate"
+            user_data[sender]["step"]="name"
             msg.body("👤 Please enter your name.")
 
-        elif text_msg == "3":
-            user_data[sender]["service"] = "Ration Card"
-            user_data[sender]["step"] = "name"
+        elif text_msg=="3":
+
+            user_data[sender]["service"]="Ration Card"
+            user_data[sender]["step"]="name"
             msg.body("👤 Please enter your name.")
 
         else:
+
             msg.body("❌ Invalid option. Please type 1, 2 or 3.")
 
-    # NAME
-    elif step == "name":
+# ---------------- NAME ----------------
 
-        user_data[sender]["name"] = text_msg.title()
+    elif step=="name":
 
-        service = user_data[sender]["service"]
+        user_data[sender]["name"]=text_msg.title()
 
-        if service == "Pension Application":
-            user_data[sender]["step"] = "age"
+        service=user_data[sender]["service"]
+
+        if service=="Pension Application":
+
+            user_data[sender]["step"]="age"
             msg.body("🎂 Enter your age.")
 
-        elif service == "Income Certificate":
-            user_data[sender]["step"] = "occupation"
+        elif service=="Income Certificate":
+
+            user_data[sender]["step"]="occupation"
             msg.body("💼 Enter your occupation.")
 
-        elif service == "Ration Card":
-            user_data[sender]["step"] = "family"
+        elif service=="Ration Card":
+
+            user_data[sender]["step"]="family"
             msg.body("👨‍👩‍👧‍👦 Number of family members?")
 
-    # AGE
-    elif step == "age":
+# ---------------- AGE ----------------
 
-        user_data[sender]["age"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
+    elif step=="age":
+
+        user_data[sender]["age"]=text_msg
+        user_data[sender]["step"]="aadhaar"
 
         msg.body("🆔 Enter your Aadhaar number.")
 
-    # OCCUPATION
-    elif step == "occupation":
+# ---------------- OCCUPATION ----------------
 
-        user_data[sender]["occupation"] = text_msg
-        user_data[sender]["step"] = "income"
+    elif step=="occupation":
+
+        user_data[sender]["occupation"]=text_msg
+        user_data[sender]["step"]="income"
 
         msg.body("💰 Enter your monthly income.")
 
-    # INCOME
-    elif step == "income":
+# ---------------- INCOME ----------------
 
-        user_data[sender]["income"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
+    elif step=="income":
+
+        user_data[sender]["income"]=text_msg
+        user_data[sender]["step"]="aadhaar"
 
         msg.body("🆔 Enter your Aadhaar number.")
 
-    # FAMILY
-    elif step == "family":
+# ---------------- FAMILY ----------------
 
-        user_data[sender]["family"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
+    elif step=="family":
+
+        user_data[sender]["family"]=text_msg
+        user_data[sender]["step"]="aadhaar"
 
         msg.body("🆔 Enter Aadhaar of family head.")
 
-    # AADHAAR
-    elif step == "aadhaar":
+# ---------------- AADHAAR ----------------
 
-        user_data[sender]["aadhaar"] = text_msg
+    elif step=="aadhaar":
 
-        if user_data[sender]["service"] == "Pension Application":
-            user_data[sender]["step"] = "bank"
+        user_data[sender]["aadhaar"]=text_msg
+
+        if user_data[sender]["service"]=="Pension Application":
+
+            user_data[sender]["step"]="bank"
             msg.body("🏦 Enter your bank account number.")
+
         else:
-            user_data[sender]["step"] = "address"
+
+            user_data[sender]["step"]="address"
             msg.body("📍 Enter your address.")
 
-    # BANK
-    elif step == "bank":
+# ---------------- BANK ----------------
 
-        user_data[sender]["bank"] = text_msg
-        user_data[sender]["step"] = "address"
+    elif step=="bank":
+
+        user_data[sender]["bank"]=text_msg
+        user_data[sender]["step"]="address"
 
         msg.body("📍 Enter your address.")
 
-    # ADDRESS
-    elif step == "address":
+# ---------------- ADDRESS ----------------
 
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
+    elif step=="address":
 
-        d = user_data[sender]
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
 
-        summary = f"Service: {d['service']}\nName: {d['name']}\n"
+        d=user_data[sender]
 
-        if d["service"] == "Pension Application":
-            summary += f"Age: {d['age']}\nBank: {d['bank']}\n"
+        summary=f"Service: {d['service']}\nName: {d['name']}\n"
 
-        if d["service"] == "Income Certificate":
-            summary += f"Occupation: {d['occupation']}\nIncome: {d['income']}\n"
+        if d["service"]=="Pension Application":
+            summary+=f"Age: {d['age']}\nBank: {d['bank']}\n"
 
-        if d["service"] == "Ration Card":
-            summary += f"Family Members: {d['family']}\n"
+        if d["service"]=="Income Certificate":
+            summary+=f"Occupation: {d['occupation']}\nIncome: {d['income']}\n"
 
-        summary += f"Aadhaar: {d['aadhaar']}\nAddress: {d['address']}"
+        if d["service"]=="Ration Card":
+            summary+=f"Family Members: {d['family']}\n"
+
+        summary+=f"Aadhaar: {d['aadhaar']}\nAddress: {d['address']}"
 
         msg.body(
-            f"📋 Confirm Your Details\n\n{summary}\n\n"
-            "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address\n"
-            "5️⃣ Menu"
+        f"📋 Confirm Your Details\n\n{summary}\n\n"
+        "1️⃣ Confirm\n"
+        "2️⃣ Edit Name\n"
+        "3️⃣ Edit Aadhaar\n"
+        "4️⃣ Edit Address\n"
+        "5️⃣ Menu"
         )
 
-    # CONFIRM
-    elif step == "confirm":
+# ---------------- CONFIRM ----------------
 
-        if text_msg == "1":
+    elif step=="confirm":
 
-            application_id = "AKS-" + str(random.randint(100000, 999999))
+        if text_msg=="1":
 
-            msg.body(
-                f"✅ Application Submitted Successfully!\n\n"
-                f"📌 Application ID: {application_id}\n\n"
-                "Type *menu* to apply again."
+            d=user_data[sender]
+
+            application_id="AKS-"+str(random.randint(100000,999999))
+
+            conn=sqlite3.connect("applications.db")
+            cursor=conn.cursor()
+
+            cursor.execute(
+            "INSERT INTO applications VALUES (?,?,?,?,?,?)",
+            (
+            application_id,
+            d["service"],
+            d["name"],
+            d["aadhaar"],
+            d["address"],
+            "Processing"
+            )
             )
 
-            user_data.pop(sender, None)
+            conn.commit()
+            conn.close()
 
-        elif text_msg == "2":
-            user_data[sender]["step"] = "edit_name"
+            msg.body(
+            f"✅ Application Submitted Successfully!\n\n"
+            f"📌 Application ID: {application_id}\n\n"
+            f"Check status anytime using:\nstatus {application_id}"
+            )
+
+            user_data.pop(sender,None)
+
+        elif text_msg=="2":
+
+            user_data[sender]["step"]="edit_name"
             msg.body("✏️ Enter correct name.")
 
-        elif text_msg == "3":
-            user_data[sender]["step"] = "edit_aadhaar"
+        elif text_msg=="3":
+
+            user_data[sender]["step"]="edit_aadhaar"
             msg.body("✏️ Enter correct Aadhaar.")
 
-        elif text_msg == "4":
-            user_data[sender]["step"] = "edit_address"
+        elif text_msg=="4":
+
+            user_data[sender]["step"]="edit_address"
             msg.body("✏️ Enter correct address.")
 
-        elif text_msg == "5":
-            user_data.pop(sender, None)
-            msg.body("🔄 Type *menu* to start again.")
+        elif text_msg=="5":
 
-    # EDIT NAME
-    elif step == "edit_name":
+            user_data.pop(sender,None)
+            msg.body("🔄 Type menu to start again.")
 
-        user_data[sender]["name"] = text_msg.title()
-        user_data[sender]["step"] = "confirm"
+# ---------------- EDIT NAME ----------------
+
+    elif step=="edit_name":
+
+        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["step"]="confirm"
 
         msg.body("✅ Name updated. Confirm again.")
 
-    # EDIT AADHAAR
-    elif step == "edit_aadhaar":
+# ---------------- EDIT AADHAAR ----------------
 
-        user_data[sender]["aadhaar"] = text_msg
-        user_data[sender]["step"] = "confirm"
+    elif step=="edit_aadhaar":
+
+        user_data[sender]["aadhaar"]=text_msg
+        user_data[sender]["step"]="confirm"
 
         msg.body("✅ Aadhaar updated. Confirm again.")
 
-    # EDIT ADDRESS
-    elif step == "edit_address":
+# ---------------- EDIT ADDRESS ----------------
 
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
+    elif step=="edit_address":
+
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
 
         msg.body("✅ Address updated. Confirm again.")
 
     return str(resp)
 
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
+if __name__=="__main__":
+    port=int(os.environ.get("PORT",10000))
+    app.run(host="0.0.0.0",port=port)
