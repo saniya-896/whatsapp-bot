@@ -12,22 +12,15 @@ app = Flask(__name__)
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
-# Important for Render voice conversion
+# Required for voice on Render
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
 
-# Health check
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
-
-
-# Status endpoint
-@app.route("/status")
-def status():
-    return {"status": "running"}
 
 
 @app.route("/whatsapp", methods=["POST"])
@@ -42,9 +35,7 @@ def whatsapp_bot():
     text_msg = (body or "").strip().lower()
     num_media = int(request.values.get("NumMedia") or 0)
 
-    print("User:", sender)
-    print("Text:", text_msg)
-    print("Media:", num_media)
+    print("User:", sender, "Message:", text_msg)
 
     # Restart
     if text_msg in ["menu", "restart", "start"]:
@@ -52,7 +43,7 @@ def whatsapp_bot():
         msg.body("🔄 Service restarted. Please type *Hi*.")
         return str(resp)
 
-    # 🎤 Voice handling
+    # Voice handling
     if num_media > 0:
 
         content_type = request.values.get("MediaContentType0", "")
@@ -83,11 +74,8 @@ def whatsapp_bot():
 
             text_msg = recognizer.recognize_google(audio).lower()
 
-            print("Voice converted:", text_msg)
-
-        except Exception as e:
-            print("Voice error:", e)
-            msg.body("⚠️ Could not understand voice.")
+        except:
+            msg.body("❌ Could not understand voice.")
             return str(resp)
 
         finally:
@@ -106,7 +94,7 @@ def whatsapp_bot():
             user_data[sender] = {"step": "menu"}
 
             msg.body(
-                "🙏 Welcome to *E-Akshaya Digital Service*\n\n"
+                "🙏 *Welcome to E-Akshaya Digital Service*\n\n"
                 "📋 Available Services\n\n"
                 "1️⃣ Pension Application\n"
                 "2️⃣ Income Certificate\n"
@@ -125,16 +113,19 @@ def whatsapp_bot():
     if step == "menu":
 
         if text_msg == "1":
+
             user_data[sender]["service"] = "Pension Application"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
 
         elif text_msg == "2":
+
             user_data[sender]["service"] = "Income Certificate"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
 
         elif text_msg == "3":
+
             user_data[sender]["service"] = "Ration Card"
             user_data[sender]["step"] = "name"
             msg.body("👤 Please say your name.")
@@ -146,16 +137,66 @@ def whatsapp_bot():
     elif step == "name":
 
         user_data[sender]["name"] = text_msg.title()
-        user_data[sender]["step"] = "aadhaar"
 
+        service = user_data[sender]["service"]
+
+        if service == "Pension Application":
+            user_data[sender]["step"] = "age"
+            msg.body("🎂 Please say your age.")
+
+        elif service == "Income Certificate":
+            user_data[sender]["step"] = "occupation"
+            msg.body("💼 Please say your occupation.")
+
+        elif service == "Ration Card":
+            user_data[sender]["step"] = "family_members"
+            msg.body("👨‍👩‍👧‍👦 How many family members?")
+
+    # AGE (PENSION)
+    elif step == "age":
+
+        user_data[sender]["age"] = text_msg
+        user_data[sender]["step"] = "aadhaar"
         msg.body("🆔 Please say your Aadhaar number.")
+
+    # OCCUPATION (INCOME)
+    elif step == "occupation":
+
+        user_data[sender]["occupation"] = text_msg
+        user_data[sender]["step"] = "income"
+        msg.body("💰 Please say your monthly income.")
+
+    # INCOME
+    elif step == "income":
+
+        user_data[sender]["income"] = text_msg
+        user_data[sender]["step"] = "aadhaar"
+        msg.body("🆔 Please say your Aadhaar number.")
+
+    # FAMILY MEMBERS
+    elif step == "family_members":
+
+        user_data[sender]["family_members"] = text_msg
+        user_data[sender]["step"] = "aadhaar"
+        msg.body("🆔 Please say Aadhaar number of head of family.")
 
     # AADHAAR
     elif step == "aadhaar":
 
         user_data[sender]["aadhaar"] = text_msg
-        user_data[sender]["step"] = "address"
 
+        if user_data[sender]["service"] == "Pension Application":
+            user_data[sender]["step"] = "bank"
+            msg.body("🏦 Please say your bank account number.")
+        else:
+            user_data[sender]["step"] = "address"
+            msg.body("📍 Please say your address.")
+
+    # BANK
+    elif step == "bank":
+
+        user_data[sender]["bank"] = text_msg
+        user_data[sender]["step"] = "address"
         msg.body("📍 Please say your address.")
 
     # ADDRESS
@@ -166,16 +207,23 @@ def whatsapp_bot():
 
         d = user_data[sender]
 
+        summary = f"Service: {d['service']}\nName: {d['name']}\n"
+
+        if d["service"] == "Pension Application":
+            summary += f"Age: {d['age']}\nBank: {d['bank']}\n"
+
+        if d["service"] == "Income Certificate":
+            summary += f"Occupation: {d['occupation']}\nIncome: {d['income']}\n"
+
+        if d["service"] == "Ration Card":
+            summary += f"Family Members: {d['family_members']}\n"
+
+        summary += f"Aadhaar: {d['aadhaar']}\nAddress: {d['address']}"
+
         msg.body(
-            f"📋 Please Confirm Your Details\n\n"
-            f"Service: {d['service']}\n"
-            f"Name: {d['name']}\n"
-            f"Aadhaar: {d['aadhaar']}\n"
-            f"Address: {d['address']}\n\n"
+            f"📋 Confirm Your Details\n\n{summary}\n\n"
             "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address"
+            "2️⃣ Restart"
         )
 
     # CONFIRM
@@ -183,52 +231,20 @@ def whatsapp_bot():
 
         if text_msg == "1":
 
-            d = user_data[sender]
-
             application_id = "AKS-" + str(random.randint(100000, 999999))
 
             msg.body(
-                f"✅ {d['service']} Submitted Successfully!\n\n"
-                f"Name: {d['name']}\n"
-                f"Aadhaar: {d['aadhaar']}\n"
-                f"Address: {d['address']}\n\n"
-                f"📌 Application ID: {application_id}"
+                f"✅ Application Submitted Successfully!\n\n"
+                f"📌 Application ID: {application_id}\n\n"
+                "Our Akshaya team will contact you."
             )
 
             del user_data[sender]
 
-        elif text_msg == "2":
-            user_data[sender]["step"] = "edit_name"
-            msg.body("✏️ Please say your correct name.")
-
-        elif text_msg == "3":
-            user_data[sender]["step"] = "edit_aadhaar"
-            msg.body("✏️ Please say your correct Aadhaar number.")
-
-        elif text_msg == "4":
-            user_data[sender]["step"] = "edit_address"
-            msg.body("✏️ Please say your correct address.")
-
         else:
-            msg.body("❌ Invalid option.")
 
-    elif step == "edit_name":
-
-        user_data[sender]["name"] = text_msg.title()
-        user_data[sender]["step"] = "confirm"
-        msg.body("✅ Name updated. Please confirm again.")
-
-    elif step == "edit_aadhaar":
-
-        user_data[sender]["aadhaar"] = text_msg
-        user_data[sender]["step"] = "confirm"
-        msg.body("✅ Aadhaar updated. Please confirm again.")
-
-    elif step == "edit_address":
-
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
-        msg.body("✅ Address updated. Please confirm again.")
+            user_data.pop(sender, None)
+            msg.body("🔄 Restarted. Please type *Hi* again.")
 
     return str(resp)
 
