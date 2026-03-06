@@ -1,12 +1,14 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-import requests
 import speech_recognition as sr
 from pydub import AudioSegment
+import requests
 import os
 import random
 import csv
 from requests.auth import HTTPBasicAuth
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 app = Flask(__name__)
 
@@ -375,3 +377,4 @@ def whatsapp_bot():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
