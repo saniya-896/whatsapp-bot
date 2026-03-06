@@ -36,10 +36,21 @@ def whatsapp_bot():
 
     print("User:", sender, "Message:", text_msg)
 
+    # CANCEL COMMAND
+    if text_msg == "cancel":
+        user_data.pop(sender, None)
+
+        msg.body(
+            "❌ Application cancelled.\n\n"
+            "Type *menu* to start again."
+        )
+
+        return str(resp)
+
     # MENU / RESTART
     if text_msg in ["menu", "restart", "start"]:
-
         user_data.pop(sender, None)
+
         user_data[sender] = {"step": "menu"}
 
         msg.body(
@@ -96,7 +107,7 @@ def whatsapp_bot():
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
-    # FIRST TIME USER
+    # FIRST TIME START
     if sender not in user_data:
 
         user_data[sender] = {"step": "menu"}
