@@ -38,8 +38,8 @@ def whatsapp_bot():
 
     # MENU / RESTART
     if text_msg in ["menu", "restart", "start"]:
-        user_data.pop(sender, None)
 
+        user_data.pop(sender, None)
         user_data[sender] = {"step": "menu"}
 
         msg.body(
@@ -96,7 +96,7 @@ def whatsapp_bot():
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
-    # FIRST TIME START
+    # FIRST TIME USER
     if sender not in user_data:
 
         user_data[sender] = {"step": "menu"}
@@ -154,13 +154,20 @@ def whatsapp_bot():
             user_data[sender]["step"] = "family"
             msg.body("👨‍👩‍👧‍👦 Number of family members?")
 
-    # AGE
+    # AGE VALIDATION
     elif step == "age":
 
-        user_data[sender]["age"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
+        if not text_msg.isdigit():
+            msg.body("❌ Please enter age in numbers only.")
+        else:
+            age = int(text_msg)
 
-        msg.body("🆔 Enter your Aadhaar number.")
+            if age < 60:
+                msg.body("⚠️ Pension is available only for age 60 and above.")
+            else:
+                user_data[sender]["age"] = age
+                user_data[sender]["step"] = "aadhaar"
+                msg.body("🆔 Enter your Aadhaar number.")
 
     # OCCUPATION
     elif step == "occupation":
@@ -186,17 +193,21 @@ def whatsapp_bot():
 
         msg.body("🆔 Enter Aadhaar of family head.")
 
-    # AADHAAR
+    # AADHAAR VALIDATION
     elif step == "aadhaar":
 
-        user_data[sender]["aadhaar"] = text_msg
-
-        if user_data[sender]["service"] == "Pension Application":
-            user_data[sender]["step"] = "bank"
-            msg.body("🏦 Enter your bank account number.")
+        if not text_msg.isdigit() or len(text_msg) != 12:
+            msg.body("❌ Invalid Aadhaar. Please enter a 12 digit Aadhaar number.")
         else:
-            user_data[sender]["step"] = "address"
-            msg.body("📍 Enter your address.")
+
+            user_data[sender]["aadhaar"] = text_msg
+
+            if user_data[sender]["service"] == "Pension Application":
+                user_data[sender]["step"] = "bank"
+                msg.body("🏦 Enter your bank account number.")
+            else:
+                user_data[sender]["step"] = "address"
+                msg.body("📍 Enter your address.")
 
     # BANK
     elif step == "bank":
