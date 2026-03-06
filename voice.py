@@ -51,7 +51,7 @@ def whatsapp_bot():
 
         return str(resp)
 
-    # VOICE MESSAGE
+    # VOICE MESSAGE PROCESSING
     if num_media > 0:
 
         content_type = request.values.get("MediaContentType0", "")
@@ -62,15 +62,14 @@ def whatsapp_bot():
 
         media_url = request.values.get("MediaUrl0")
 
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-        )
-
-        with open("voice.ogg", "wb") as f:
-            f.write(audio_data.content)
-
         try:
+            audio_data = requests.get(
+                media_url,
+                auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+            )
+
+            with open("voice.ogg", "wb") as f:
+                f.write(audio_data.content)
 
             sound = AudioSegment.from_ogg("voice.ogg")
             sound.export("voice.wav", format="wav")
@@ -83,17 +82,17 @@ def whatsapp_bot():
             text_msg = recognizer.recognize_google(audio).lower()
 
         except:
-            msg.body("❌ Could not understand voice.")
+            msg.body("❌ Could not understand voice message.")
             return str(resp)
 
         finally:
-
             if os.path.exists("voice.ogg"):
                 os.remove("voice.ogg")
 
             if os.path.exists("voice.wav"):
                 os.remove("voice.wav")
 
+    # FIRST USER MESSAGE
     if sender not in user_data:
 
         user_data[sender] = {"step": "menu"}
@@ -110,7 +109,7 @@ def whatsapp_bot():
 
     step = user_data[sender]["step"]
 
-    # MENU SELECTION
+    # MENU
     if step == "menu":
 
         if text_msg == "1":
@@ -135,6 +134,7 @@ def whatsapp_bot():
     elif step == "name":
 
         user_data[sender]["name"] = text_msg.title()
+
         service = user_data[sender]["service"]
 
         if service == "Pension Application":
@@ -154,6 +154,7 @@ def whatsapp_bot():
 
         if not text_msg.isdigit():
             msg.body("❌ Please enter age in numbers only.")
+
         else:
 
             age = int(text_msg)
@@ -237,12 +238,10 @@ def whatsapp_bot():
         msg.body(
             f"📋 Confirm Details\n\n{summary}\n\n"
             "1️⃣ Confirm\n"
-            "2️⃣ Edit Name\n"
-            "3️⃣ Edit Aadhaar\n"
-            "4️⃣ Edit Address\n"
             "5️⃣ Menu"
         )
 
+    # CONFIRM
     elif step == "confirm":
 
         if text_msg == "1":
@@ -250,12 +249,17 @@ def whatsapp_bot():
             application_id = "AKS-" + str(random.randint(100000,999999))
 
             msg.body(
-                f"✅ Application Submitted!\n\n"
+                f"✅ Application Submitted Successfully!\n\n"
                 f"📌 Application ID: {application_id}\n\n"
                 "Type *menu* to apply again."
             )
 
             user_data.pop(sender, None)
+
+        elif text_msg == "5":
+
+            user_data.pop(sender, None)
+            msg.body("🔄 Type *menu* to start again.")
 
     return str(resp)
 
