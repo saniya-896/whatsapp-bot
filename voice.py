@@ -7,6 +7,7 @@ from pydub import AudioSegment
 import os
 import random
 import csv
+import time
 from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -394,41 +395,42 @@ def whatsapp_bot():
         if text_msg=="1":
 
             app_id="AKS-"+str(random.randint(100000,999999))
-
+    
             save_application(user_data[sender],app_id)
-
+    
             generate_pdf(user_data[sender],app_id)
-
+            time.sleep(1)
+    
             base_url = request.host_url
             pdf_url = f"{base_url}pdf/{app_id}.pdf"
-
+    
             msg.body(
                 f"Application Submitted\n\n"
                 f"Application ID: {app_id}\n"
                 f"Check status:\nstatus {app_id}"
             )
-
+    
             try:
                 client.messages.create(
                     from_="whatsapp:+14155238886",
                     to=sender,
-                    body="Your Application Receipt",
+                    body=f"📄 Your Application Receipt\nApplication ID: {app_id}",
                     media_url=[pdf_url]
                 )
-            except:
-                pass
-
+            except Exception as e:
+                 print("Twilio Error:", e)
+    
             user_data.pop(sender)
             return str(resp)
-
+    
         elif text_msg=="2":
             user_data[sender]["step"]="edit_name"
             msg.body("Enter correct name")
-
+    
         elif text_msg=="3":
             user_data[sender]["step"]="edit_aadhaar"
             msg.body("Enter correct Aadhaar number")
-
+    
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
