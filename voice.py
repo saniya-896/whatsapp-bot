@@ -22,8 +22,9 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-ADMIN_NUMBERS = ["whatsapp:+919633406610"]
-
+ADMIN_NUMBERS = [
+    "whatsapp:+919633406610"
+]
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -66,6 +67,8 @@ def generate_pdf(data, app_id):
     pdf = SimpleDocTemplate(filename)
     pdf.build(elements)
 
+    return filename
+
 
 # ---------------- SAVE CSV ----------------
 
@@ -90,38 +93,17 @@ def save_application(data, app_id):
         ])
 
 
-# ---------------- UPDATE STATUS ----------------
-
-def update_status(app_id,new_status):
-
-    if not os.path.exists("applications.csv"):
-        return
-
-    rows=[]
-
-    with open("applications.csv","r") as f:
-        rows=list(csv.reader(f))
-
-    for r in rows:
-        if len(r)>=6 and r[0]==app_id:
-            r[5]=new_status
-
-    with open("applications.csv","w",newline="") as f:
-        writer=csv.writer(f)
-        writer.writerows(rows)
-
-
 # ---------------- PDF DOWNLOAD ----------------
 
-@app.route("/pdf/<filename>")
-def get_pdf(filename):
+@app.route("/pdf/<app_id>.pdf")
+def get_pdf(app_id):
 
-    file_path = f"/tmp/{filename}"
+    file_path = f"/tmp/{app_id}.pdf"
 
     if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True, download_name=filename)
-
-    return "PDF not found",404
+        return send_file(file_path, as_attachment=True)
+    else:
+        return "PDF not found",404
 
 
 # ---------------- HOME ----------------
@@ -129,20 +111,6 @@ def get_pdf(filename):
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
-
-
-# ---------------- SHOW CONFIRM ----------------
-
-def show_confirm(msg,data):
-
-    msg.body(
-        f"Confirm Details\n\n"
-        f"Service:{data['service']}\n"
-        f"Name:{data['name']}\n"
-        f"Aadhaar:{data['aadhaar']}\n"
-        f"Address:{data['address']}\n\n"
-        "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
-    )
 
 
 # ---------------- WHATSAPP BOT ----------------
@@ -156,8 +124,7 @@ def whatsapp_bot():
     sender = request.values.get("From")
     body = request.values.get("Body")
 
-    user_text = (body or "").strip().lower()
-    text_msg = normalize_command(user_text)
+    text_msg = normalize_command((body or "").strip().lower())
 
     num_media = int(request.values.get("NumMedia") or 0)
 
@@ -187,92 +154,14 @@ def whatsapp_bot():
                 audio = recognizer.record(source)
 
             try:
-                spoken = recognizer.recognize_google(audio,language="ml-IN").lower()
+                text_msg = recognizer.recognize_google(audio,language="ml-IN").lower()
             except:
-                spoken = recognizer.recognize_google(audio,language="en-IN").lower()
+                text_msg = recognizer.recognize_google(audio,language="en-IN").lower()
 
-            user_text = spoken
-            text_msg = normalize_command(spoken)
+            text_msg = normalize_command(text_msg)
 
         except:
             msg.body("Voice not understood")
-            return str(resp)
-
-
-# ---------------- STATUS CHECK ----------------
-
-    if user_text.startswith("status"):
-
-        parts=user_text.split()
-
-        if len(parts)!=2:
-            msg.body("Use: status AKS-123456")
-            return str(resp)
-
-        app_id=parts[1].upper()
-
-        if not os.path.exists("applications.csv"):
-            msg.body("Database empty")
-            return str(resp)
-
-        with open("applications.csv","r") as f:
-
-            for row in csv.reader(f):
-
-                if len(row)>=6 and row[0]==app_id:
-
-                    msg.body(
-                        f"Application Status\n\n"
-                        f"ID:{row[0]}\n"
-                        f"Service:{row[1]}\n"
-                        f"Name:{row[2]}\n"
-                        f"Status:{row[5]}"
-                    )
-                    return str(resp)
-
-        msg.body("Application not found")
-        return str(resp)
-
-
-# ---------------- ADMIN ----------------
-
-    if sender in ADMIN_NUMBERS:
-
-        if text_msg=="admin":
-
-            if not os.path.exists("applications.csv"):
-                msg.body("No applications yet")
-                return str(resp)
-
-            rows=list(csv.reader(open("applications.csv")))
-
-            text="Recent Applications\n\n"
-
-            for r in rows[-5:]:
-
-                if len(r)>=6:
-                    text+=(
-                        f"ID:{r[0]}\n"
-                        f"Service:{r[1]}\n"
-                        f"Name:{r[2]}\n"
-                        f"Status:{r[5]}\n\n"
-                    )
-
-            msg.body(text)
-            return str(resp)
-
-        if text_msg.startswith("approve"):
-
-            app_id=text_msg.split()[1].upper()
-            update_status(app_id,"Approved")
-            msg.body(f"{app_id} Approved")
-            return str(resp)
-
-        if text_msg.startswith("reject"):
-
-            app_id=text_msg.split()[1].upper()
-            update_status(app_id,"Rejected")
-            msg.body(f"{app_id} Rejected")
             return str(resp)
 
 
@@ -366,6 +255,7 @@ def whatsapp_bot():
 
             user_data[sender]["aadhaar"]=text_msg
             user_data[sender]["step"]="address"
+
             msg.body("Enter address")
 
 
@@ -376,7 +266,16 @@ def whatsapp_bot():
         user_data[sender]["address"]=text_msg
         user_data[sender]["step"]="confirm"
 
-        show_confirm(msg,user_data[sender])
+        d=user_data[sender]
+
+        msg.body(
+            f"Confirm Details\n\n"
+            f"Service:{d['service']}\n"
+            f"Name:{d['name']}\n"
+            f"Aadhaar:{d['aadhaar']}\n"
+            f"Address:{d['address']}\n\n"
+            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+        )
 
 
 # ---------------- CONFIRM ----------------
@@ -420,32 +319,6 @@ def whatsapp_bot():
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
-
-
-# ---------------- EDIT ----------------
-
-    elif step=="edit_name":
-
-        user_data[sender]["name"]=text_msg.title()
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-
-
-    elif step=="edit_aadhaar":
-
-        user_data[sender]["aadhaar"]=text_msg
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-
-
-    elif step=="edit_address":
-
-        user_data[sender]["address"]=text_msg
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
 
 
     return str(resp)
