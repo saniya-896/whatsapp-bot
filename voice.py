@@ -22,9 +22,8 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-ADMIN_NUMBERS = [
-    "whatsapp:+919633406610"
-]
+ADMIN_NUMBERS = ["whatsapp:+919633406610"]
+
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -101,11 +100,10 @@ def update_status(app_id,new_status):
     rows=[]
 
     with open("applications.csv","r") as f:
-        reader=csv.reader(f)
-        rows=list(reader)
+        rows=list(csv.reader(f))
 
     for r in rows:
-        if r[0]==app_id:
+        if len(r)>=6 and r[0]==app_id:
             r[5]=new_status
 
     with open("applications.csv","w",newline="") as f:
@@ -123,7 +121,7 @@ def get_pdf(filename):
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True, download_name=filename)
 
-    return "PDF not found", 404
+    return "PDF not found",404
 
 
 # ---------------- HOME ----------------
@@ -131,6 +129,20 @@ def get_pdf(filename):
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
+
+
+# ---------------- SHOW CONFIRM ----------------
+
+def show_confirm(msg,data):
+
+    msg.body(
+        f"Confirm Details\n\n"
+        f"Service:{data['service']}\n"
+        f"Name:{data['name']}\n"
+        f"Aadhaar:{data['aadhaar']}\n"
+        f"Address:{data['address']}\n\n"
+        "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+    )
 
 
 # ---------------- WHATSAPP BOT ----------------
@@ -144,7 +156,9 @@ def whatsapp_bot():
     sender = request.values.get("From")
     body = request.values.get("Body")
 
-    text_msg = normalize_command((body or "").strip().lower())
+    user_text = (body or "").strip().lower()
+    text_msg = normalize_command(user_text)
+
     num_media = int(request.values.get("NumMedia") or 0)
 
 
@@ -159,25 +173,26 @@ def whatsapp_bot():
             auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN)
         )
 
-        with open("voice.ogg","wb") as f:
+        with open("/tmp/voice.ogg","wb") as f:
             f.write(audio_data.content)
 
         try:
 
-            sound = AudioSegment.from_file("voice.ogg")
-            sound.export("voice.wav",format="wav")
+            sound = AudioSegment.from_file("/tmp/voice.ogg")
+            sound.export("/tmp/voice.wav",format="wav")
 
             recognizer = sr.Recognizer()
 
-            with sr.AudioFile("voice.wav") as source:
+            with sr.AudioFile("/tmp/voice.wav") as source:
                 audio = recognizer.record(source)
 
             try:
-                text_msg = recognizer.recognize_google(audio,language="ml-IN").lower()
+                spoken = recognizer.recognize_google(audio,language="ml-IN").lower()
             except:
-                text_msg = recognizer.recognize_google(audio,language="en-IN").lower()
+                spoken = recognizer.recognize_google(audio,language="en-IN").lower()
 
-            text_msg = normalize_command(text_msg)
+            user_text = spoken
+            text_msg = normalize_command(spoken)
 
         except:
             msg.body("Voice not understood")
@@ -186,9 +201,9 @@ def whatsapp_bot():
 
 # ---------------- STATUS CHECK ----------------
 
-    if text_msg.startswith("status"):
+    if user_text.startswith("status"):
 
-        parts=text_msg.split()
+        parts=user_text.split()
 
         if len(parts)!=2:
             msg.body("Use: status AKS-123456")
@@ -202,11 +217,9 @@ def whatsapp_bot():
 
         with open("applications.csv","r") as f:
 
-            reader=csv.reader(f)
+            for row in csv.reader(f):
 
-            for row in reader:
-
-                if row[0]==app_id:
+                if len(row)>=6 and row[0]==app_id:
 
                     msg.body(
                         f"Application Status\n\n"
@@ -215,7 +228,6 @@ def whatsapp_bot():
                         f"Name:{row[2]}\n"
                         f"Status:{row[5]}"
                     )
-
                     return str(resp)
 
         msg.body("Application not found")
@@ -232,20 +244,19 @@ def whatsapp_bot():
                 msg.body("No applications yet")
                 return str(resp)
 
-            with open("applications.csv","r") as f:
-                reader=csv.reader(f)
-                rows=list(reader)
+            rows=list(csv.reader(open("applications.csv")))
 
             text="Recent Applications\n\n"
 
             for r in rows[-5:]:
 
-                text+=(
-                    f"ID:{r[0]}\n"
-                    f"Service:{r[1]}\n"
-                    f"Name:{r[2]}\n"
-                    f"Status:{r[5]}\n\n"
-                )
+                if len(r)>=6:
+                    text+=(
+                        f"ID:{r[0]}\n"
+                        f"Service:{r[1]}\n"
+                        f"Name:{r[2]}\n"
+                        f"Status:{r[5]}\n\n"
+                    )
 
             msg.body(text)
             return str(resp)
@@ -254,7 +265,6 @@ def whatsapp_bot():
 
             app_id=text_msg.split()[1].upper()
             update_status(app_id,"Approved")
-
             msg.body(f"{app_id} Approved")
             return str(resp)
 
@@ -262,7 +272,6 @@ def whatsapp_bot():
 
             app_id=text_msg.split()[1].upper()
             update_status(app_id,"Rejected")
-
             msg.body(f"{app_id} Rejected")
             return str(resp)
 
@@ -333,6 +342,7 @@ def whatsapp_bot():
 
         if not text_msg.isdigit():
             msg.body("Enter valid age")
+
         else:
 
             age=int(text_msg)
@@ -351,6 +361,7 @@ def whatsapp_bot():
 
         if not text_msg.isdigit() or len(text_msg)!=12:
             msg.body("Enter valid 12 digit Aadhaar")
+
         else:
 
             user_data[sender]["aadhaar"]=text_msg
@@ -365,16 +376,7 @@ def whatsapp_bot():
         user_data[sender]["address"]=text_msg
         user_data[sender]["step"]="confirm"
 
-        d=user_data[sender]
-
-        msg.body(
-            f"Confirm Details\n\n"
-            f"Service:{d['service']}\n"
-            f"Name:{d['name']}\n"
-            f"Aadhaar:{d['aadhaar']}\n"
-            f"Address:{d['address']}\n\n"
-            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
-        )
+        show_confirm(msg,user_data[sender])
 
 
 # ---------------- CONFIRM ----------------
@@ -426,21 +428,24 @@ def whatsapp_bot():
 
         user_data[sender]["name"]=text_msg.title()
         user_data[sender]["step"]="confirm"
-        msg.body("Name updated")
+
+        show_confirm(msg,user_data[sender])
 
 
     elif step=="edit_aadhaar":
 
         user_data[sender]["aadhaar"]=text_msg
         user_data[sender]["step"]="confirm"
-        msg.body("Aadhaar updated")
+
+        show_confirm(msg,user_data[sender])
 
 
     elif step=="edit_address":
 
         user_data[sender]["address"]=text_msg
         user_data[sender]["step"]="confirm"
-        msg.body("Address updated")
+
+        show_confirm(msg,user_data[sender])
 
 
     return str(resp)
@@ -450,5 +455,3 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
-
-
