@@ -3,5 +3,5 @@ twilio
 requests
 SpeechRecognition
 pydub
-gunicorn
 reportlab
+gunicorn
