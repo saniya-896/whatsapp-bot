@@ -138,7 +138,8 @@ def whatsapp_bot():
     sender = request.values.get("From")
     body = request.values.get("Body")
 
-    text_msg = normalize_command((body or "").strip().lower())
+    user_text = (body or "").strip().lower()
+    text_msg = normalize_command(user_text)
     num_media = int(request.values.get("NumMedia") or 0)
 
 
@@ -182,9 +183,9 @@ def whatsapp_bot():
 
 # ---------------- STATUS CHECK ----------------
 
-    if text_msg.startswith("status"):
+    if user_text.startswith("status"):
 
-        parts=text_msg.split()
+        parts = user_text.split()
 
         if len(parts)!=2:
             msg.body("Use: status AKS-123456")
@@ -448,5 +449,6 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
 
