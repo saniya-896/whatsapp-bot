@@ -334,7 +334,7 @@ def whatsapp_bot():
             age=int(text_msg)
 
             if age<50:
-                msg.body("Pension only for age 60+")
+                msg.body("Pension only for age 50+")
             else:
                 user_data[sender]["age"]=age
                 user_data[sender]["step"]="aadhaar"
@@ -372,39 +372,50 @@ def whatsapp_bot():
             "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
         )
 
-#confirm
-elif step=="confirm":
+# ---------------- CONFIRM ----------------
 
-    if text_msg=="1":
+    elif step=="confirm":
 
-        app_id="AKS-"+str(random.randint(100000,999999))
+        if text_msg=="1":
 
-        save_application(user_data[sender],app_id)
+            app_id="AKS-"+str(random.randint(100000,999999))
 
-        generate_pdf(user_data[sender],app_id)
+            save_application(user_data[sender],app_id)
 
-        pdf_url=f"https://whatsapp-bot-production-81af.up.railway.app/pdf/{app_id}.pdf"
+            generate_pdf(user_data[sender],app_id)
 
-        # First send confirmation message
-        msg.body(
-            f"Application Submitted\n\n"
-            f"Application ID: {app_id}\n"
-            f"Check status:\nstatus {app_id}\n\n"
-            f"Your PDF receipt will arrive shortly."
-        )
+            pdf_url=f"https://whatsapp-bot-production-81af.up.railway.app/pdf/{app_id}.pdf"
 
-        # Send PDF separately
-        try:
-            client.messages.create(
-                from_="whatsapp:+14155238886",
-                to=sender,
-                body="Your Application Receipt",
-                media_url=[pdf_url]
+            msg.body(
+                f"Application Submitted\n\n"
+                f"Application ID: {app_id}\n"
+                f"Check status:\nstatus {app_id}\n\n"
+                f"Your PDF receipt will arrive shortly."
             )
-        except:
-            pass
 
-        user_data.pop(sender)
+            try:
+                client.messages.create(
+                    from_="whatsapp:+14155238886",
+                    to=sender,
+                    body="Your Application Receipt",
+                    media_url=[pdf_url]
+                )
+            except:
+                pass
+
+            user_data.pop(sender)
+
+        elif text_msg=="2":
+            user_data[sender]["step"]="edit_name"
+            msg.body("Enter correct name")
+
+        elif text_msg=="3":
+            user_data[sender]["step"]="edit_aadhaar"
+            msg.body("Enter correct Aadhaar")
+
+        elif text_msg=="4":
+            user_data[sender]["step"]="edit_address"
+            msg.body("Enter correct address")
 
 
 # ---------------- EDIT ----------------
@@ -437,4 +448,5 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
