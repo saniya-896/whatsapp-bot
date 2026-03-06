@@ -17,6 +17,9 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
+# ADMIN NUMBER
+ADMIN_NUMBER = "whatsapp:+919745658544"
+
 # CSV SAVE FUNCTION
 def save_application(data):
 
@@ -50,6 +53,37 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia") or 0)
 
     print("User:", sender, "Message:", text_msg)
+
+    # ADMIN VIEW APPLICATIONS
+    if sender == ADMIN_NUMBER and text_msg == "admin":
+
+        try:
+
+            with open("applications.csv", "r") as file:
+
+                reader = csv.reader(file)
+                rows = list(reader)
+
+            if not rows:
+                msg.body("📂 No applications found.")
+            else:
+
+                result = "📋 Recent Applications\n\n"
+
+                for r in rows[-5:]:
+                    result += (
+                        f"Service: {r[0]}\n"
+                        f"Name: {r[1]}\n"
+                        f"Aadhaar: {r[2]}\n"
+                        f"Address: {r[3]}\n\n"
+                    )
+
+                msg.body(result)
+
+        except:
+            msg.body("⚠️ No data available.")
+
+        return str(resp)
 
     # CANCEL COMMAND
     if text_msg == "cancel":
@@ -279,7 +313,6 @@ def whatsapp_bot():
         if text_msg == "1":
 
             save_application(user_data[sender])
-            print("APPLICATION SAVED:", user_data[sender])
 
             application_id = "AKS-" + str(random.randint(100000, 999999))
 
