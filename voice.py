@@ -26,7 +26,7 @@ ADMIN_NUMBERS = [
     "whatsapp:+919633406610"
 ]
 
-# ---------------- COMMAND NORMALIZATION ----------------
+# ---------------- NORMALIZE COMMAND ----------------
 
 def normalize_command(text):
 
@@ -105,6 +105,10 @@ def update_status(app_id,new_status):
         rows=list(reader)
 
     for r in rows:
+
+        if len(r) < 6:
+            continue
+
         if r[0]==app_id:
             r[5]=new_status
 
@@ -140,6 +144,7 @@ def whatsapp_bot():
 
     user_text = (body or "").strip().lower()
     text_msg = normalize_command(user_text)
+
     num_media = int(request.values.get("NumMedia") or 0)
 
 
@@ -163,8 +168,6 @@ def whatsapp_bot():
             sound.export("voice.wav", format="wav")
 
             recognizer = sr.Recognizer()
-            recognizer.energy_threshold = 300
-            recognizer.pause_threshold = 0.8
 
             with sr.AudioFile("voice.wav") as source:
                 audio = recognizer.record(source)
@@ -181,87 +184,60 @@ def whatsapp_bot():
             msg.body("Voice not understood")
             return str(resp)
 
+
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
 
-        parts = user_text.strip().split()
+        parts = user_text.split()
 
-        # if user only types "status"
-        if len(parts) == 1:
-
-            if not os.path.exists("applications.csv"):
-                msg.body("No applications found.")
-                return str(resp)
-
-            with open("applications.csv","r") as f:
-                reader = list(csv.reader(f))
-
-                if len(reader) <= 1:
-                    msg.body("No applications yet.")
-                    return str(resp)
-
-                last = reader[-1]
-
-                msg.body(
-                    f"Latest Application Status\n\n"
-                    f"ID: {last[0]}\n"
-                    f"Service: {last[1]}\n"
-                    f"Name: {last[2]}\n"
-                    f"Status: {last[5]}"
-                )
-
-                return str(resp)
-
-        # if user types "status AKS-123456"
-        if len(parts) == 2:
-
-            app_id = parts[1].upper()
-
-            if not os.path.exists("applications.csv"):
-                msg.body("Database empty")
-                return str(resp)
-
-            with open("applications.csv","r") as f:
-
-                reader = csv.reader(f)
-
-               for row in reader:
-
-                    if len(row) < 6:
-                        continue
-
-                    if row[0] == app_id:
-
-                        msg.body(
-                            f"Application Status\n\n"
-                            f"ID: {row[0]}\n"
-                            f"Service: {row[1]}\n"
-                            f"Name: {row[2]}\n"
-                            f"Status: {row[5]}"
-                        )
-
-                        return str(resp)
-
-            msg.body("Application not found.")
+        if len(parts) != 2:
+            msg.body("Use: status AKS-123456")
             return str(resp)
 
-        msg.body("Use: status AKS-123456")
+        app_id = parts[1].upper()
+
+        if not os.path.exists("applications.csv"):
+            msg.body("Database empty")
+            return str(resp)
+
+        with open("applications.csv","r") as f:
+
+            reader = csv.reader(f)
+
+            for row in reader:
+
+                if len(row) < 6:
+                    continue
+
+                if row[0] == app_id:
+
+                    msg.body(
+                        f"Application Status\n\n"
+                        f"ID: {row[0]}\n"
+                        f"Service: {row[1]}\n"
+                        f"Name: {row[2]}\n"
+                        f"Status: {row[5]}"
+                    )
+
+                    return str(resp)
+
+        msg.body("Application not found")
         return str(resp)
+
 
 # ---------------- ADMIN ----------------
 
     if sender in ADMIN_NUMBERS:
 
-        if text_msg=="admin":
+        if text_msg == "admin":
 
             if not os.path.exists("applications.csv"):
                 msg.body("No applications yet")
                 return str(resp)
 
             with open("applications.csv","r") as f:
-                reader=csv.reader(f)
-                rows=list(reader)
+                rows=list(csv.reader(f))
 
             text="Recent Applications\n\n"
 
@@ -406,6 +382,7 @@ def whatsapp_bot():
             "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
         )
 
+
 # ---------------- CONFIRM ----------------
 
     elif step=="confirm":
@@ -423,8 +400,7 @@ def whatsapp_bot():
             msg.body(
                 f"Application Submitted\n\n"
                 f"Application ID: {app_id}\n"
-                f"Check status:\nstatus {app_id}\n\n"
-                f"Your PDF receipt will arrive shortly."
+                f"Check status:\nstatus {app_id}"
             )
 
             try:
@@ -439,42 +415,6 @@ def whatsapp_bot():
 
             user_data.pop(sender)
 
-        elif text_msg=="2":
-            user_data[sender]["step"]="edit_name"
-            msg.body("Enter correct name")
-
-        elif text_msg=="3":
-            user_data[sender]["step"]="edit_aadhaar"
-            msg.body("Enter correct Aadhaar")
-
-        elif text_msg=="4":
-            user_data[sender]["step"]="edit_address"
-            msg.body("Enter correct address")
-
-
-# ---------------- EDIT ----------------
-
-    elif step=="edit_name":
-
-        user_data[sender]["name"]=text_msg.title()
-        user_data[sender]["step"]="confirm"
-        msg.body("Name updated")
-
-
-    elif step=="edit_aadhaar":
-
-        user_data[sender]["aadhaar"]=text_msg
-        user_data[sender]["step"]="confirm"
-        msg.body("Aadhaar updated")
-
-
-    elif step=="edit_address":
-
-        user_data[sender]["address"]=text_msg
-        user_data[sender]["step"]="confirm"
-        msg.body("Address updated")
-
-
     return str(resp)
 
 
@@ -482,8 +422,3 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
-
-
-
-
-
