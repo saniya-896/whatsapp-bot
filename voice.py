@@ -22,9 +22,7 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-ADMIN_NUMBERS = [
-    "whatsapp:+919633406610"
-]
+ADMIN_NUMBERS = ["whatsapp:+919633406610"]
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -93,7 +91,7 @@ def save_application(data, app_id):
         ])
 
 
-# ---------------- PDF DOWNLOAD ----------------
+# ---------------- PDF ROUTE ----------------
 
 @app.route("/pdf/<app_id>.pdf")
 def get_pdf(app_id):
@@ -111,6 +109,23 @@ def get_pdf(app_id):
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
+
+
+# ---------------- SHOW CONFIRM ----------------
+
+def show_confirm(msg,data):
+
+    msg.body(
+        f"Confirm Details\n\n"
+        f"Service:{data['service']}\n"
+        f"Name:{data['name']}\n"
+        f"Aadhaar:{data['aadhaar']}\n"
+        f"Address:{data['address']}\n\n"
+        "1 Confirm\n"
+        "2 Edit Name\n"
+        "3 Edit Aadhaar\n"
+        "4 Edit Address"
+    )
 
 
 # ---------------- WHATSAPP BOT ----------------
@@ -266,16 +281,7 @@ def whatsapp_bot():
         user_data[sender]["address"]=text_msg
         user_data[sender]["step"]="confirm"
 
-        d=user_data[sender]
-
-        msg.body(
-            f"Confirm Details\n\n"
-            f"Service:{d['service']}\n"
-            f"Name:{d['name']}\n"
-            f"Aadhaar:{d['aadhaar']}\n"
-            f"Address:{d['address']}\n\n"
-            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
-        )
+        show_confirm(msg,user_data[sender])
 
 
 # ---------------- CONFIRM ----------------
@@ -319,6 +325,39 @@ def whatsapp_bot():
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
+
+
+# ---------------- EDIT NAME ----------------
+
+    elif step=="edit_name":
+
+        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["step"]="confirm"
+
+        show_confirm(msg,user_data[sender])
+
+
+# ---------------- EDIT AADHAAR ----------------
+
+    elif step=="edit_aadhaar":
+
+        if not text_msg.isdigit() or len(text_msg)!=12:
+            msg.body("Enter valid 12 digit Aadhaar")
+        else:
+            user_data[sender]["aadhaar"]=text_msg
+            user_data[sender]["step"]="confirm"
+
+            show_confirm(msg,user_data[sender])
+
+
+# ---------------- EDIT ADDRESS ----------------
+
+    elif step=="edit_address":
+
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
+
+        show_confirm(msg,user_data[sender])
 
 
     return str(resp)
