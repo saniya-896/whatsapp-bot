@@ -1,6 +1,7 @@
-Flask==3.0.3
-twilio==9.0.5
+Flask
+twilio
 requests
 SpeechRecognition
 pydub
 gunicorn
+reportlab
