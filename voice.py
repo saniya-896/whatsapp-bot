@@ -26,19 +26,19 @@ ADMIN_NUMBERS = [
     "whatsapp:+919633406610"
 ]
 
-# ---------------- COMMAND NORMALIZATION ----------------
+# ---------------- NORMALIZE COMMAND ----------------
 
 def normalize_command(text):
 
     text = text.lower()
 
-    if any(w in text for w in ["pension","pension venam","pension apply","പെൻഷൻ"]):
+    if any(w in text for w in ["pension","pension venam","പെൻഷൻ"]):
         return "1"
 
-    if any(w in text for w in ["income","income certificate","income venam","ഇൻകം"]):
+    if any(w in text for w in ["income","income certificate","ഇൻകം"]):
         return "2"
 
-    if any(w in text for w in ["ration","ration card","ration card venam","റേഷൻ"]):
+    if any(w in text for w in ["ration","ration card","റേഷൻ"]):
         return "3"
 
     return text
@@ -216,7 +216,7 @@ def whatsapp_bot():
         return str(resp)
 
 
-# ---------------- ADMIN COMMANDS ----------------
+# ---------------- ADMIN ----------------
 
     if sender in ADMIN_NUMBERS:
 
@@ -235,17 +235,14 @@ def whatsapp_bot():
             for r in rows[-5:]:
 
                 text+=(
-
                     f"ID:{r[0]}\n"
                     f"Service:{r[1]}\n"
                     f"Name:{r[2]}\n"
                     f"Status:{r[5]}\n\n"
-
                 )
 
             msg.body(text)
             return str(resp)
-
 
         if text_msg.startswith("approve"):
 
@@ -254,7 +251,6 @@ def whatsapp_bot():
 
             msg.body(f"{app_id} Approved")
             return str(resp)
-
 
         if text_msg.startswith("reject"):
 
@@ -265,19 +261,17 @@ def whatsapp_bot():
             return str(resp)
 
 
-# ---------------- START MENU ----------------
+# ---------------- START ----------------
 
-    if text_msg in ["hi","hello","hai","menu"]:
+    if text_msg in ["hi","hello","menu"]:
 
         user_data[sender]={"step":"menu"}
 
         msg.body(
-
             "Welcome to E-Akshaya Digital Service\n\n"
             "1 Pension Application\n"
             "2 Income Certificate\n"
             "3 Ration Card"
-
         )
 
         return str(resp)
@@ -320,24 +314,19 @@ def whatsapp_bot():
         user_data[sender]["name"]=text_msg.title()
 
         if user_data[sender]["service"]=="Pension":
-
             user_data[sender]["step"]="age"
             msg.body("Enter your age")
-
         else:
-
             user_data[sender]["step"]="aadhaar"
             msg.body("Enter Aadhaar number")
 
 
-# ---------------- AGE VALIDATION ----------------
+# ---------------- AGE ----------------
 
     elif step=="age":
 
         if not text_msg.isdigit():
-
             msg.body("Enter valid age")
-
         else:
 
             age=int(text_msg)
@@ -355,14 +344,11 @@ def whatsapp_bot():
     elif step=="aadhaar":
 
         if not text_msg.isdigit() or len(text_msg)!=12:
-
             msg.body("Enter valid 12 digit Aadhaar")
-
         else:
 
             user_data[sender]["aadhaar"]=text_msg
             user_data[sender]["step"]="address"
-
             msg.body("Enter address")
 
 
@@ -376,14 +362,12 @@ def whatsapp_bot():
         d=user_data[sender]
 
         msg.body(
-
             f"Confirm Details\n\n"
             f"Service:{d['service']}\n"
             f"Name:{d['name']}\n"
             f"Aadhaar:{d['aadhaar']}\n"
             f"Address:{d['address']}\n\n"
             "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
-
         )
 
 
@@ -399,23 +383,19 @@ def whatsapp_bot():
 
             generate_pdf(user_data[sender],app_id)
 
-          pdf_url = f"https://whatsapp-bot-production-81af.up.railway.app/pdf/{app_id}.pdf"
+            pdf_url=f"https://whatsapp-bot-production-81af.up.railway.app/pdf/{app_id}.pdf"
 
             client.messages.create(
-
                 from_="whatsapp:+14155238886",
                 to=sender,
                 body="Your Application Receipt",
                 media_url=[pdf_url]
-
             )
 
             msg.body(
-
                 f"Application Submitted\n\n"
                 f"Application ID:{app_id}\n"
                 f"Check status:\nstatus {app_id}"
-
             )
 
             user_data.pop(sender)
@@ -425,11 +405,9 @@ def whatsapp_bot():
             user_data[sender]["step"]="edit_name"
             msg.body("Enter correct name")
 
-
         elif text_msg=="3":
             user_data[sender]["step"]="edit_aadhaar"
             msg.body("Enter correct Aadhaar")
-
 
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
@@ -464,6 +442,5 @@ def whatsapp_bot():
 
 if __name__=="__main__":
 
-    port=int(os.environ.get("PORT",10000))
+    port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
-
