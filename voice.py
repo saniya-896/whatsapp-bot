@@ -5,6 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 import os
 import random
+import csv
 from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
@@ -15,6 +16,20 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
+
+# SAVE APPLICATION TO CSV
+def save_application(data):
+
+    with open("applications.csv", "a", newline="") as file:
+
+        writer = csv.writer(file)
+
+        writer.writerow([
+            data.get("service"),
+            data.get("name"),
+            data.get("aadhaar"),
+            data.get("address")
+        ])
 
 
 @app.route("/")
@@ -262,6 +277,8 @@ def whatsapp_bot():
     elif step == "confirm":
 
         if text_msg == "1":
+
+            save_application(user_data[sender])
 
             application_id = "AKS-" + str(random.randint(100000, 999999))
 
