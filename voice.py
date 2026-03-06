@@ -26,7 +26,7 @@ ADMIN_NUMBERS = [
     "whatsapp:+919633406610"
 ]
 
-# ---------------- NORMALIZE COMMAND ----------------
+# ---------------- COMMAND NORMALIZATION ----------------
 
 def normalize_command(text):
 
@@ -150,26 +150,28 @@ def whatsapp_bot():
 
         audio_data = requests.get(
             media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN)
+            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
         )
 
-        with open("voice.ogg","wb") as f:
+        with open("voice.opus","wb") as f:
             f.write(audio_data.content)
 
         try:
 
-            sound = AudioSegment.from_file("voice.ogg")
-            sound.export("voice.wav",format="wav")
+            sound = AudioSegment.from_file("voice.opus", format="ogg")
+            sound.export("voice.wav", format="wav")
 
             recognizer = sr.Recognizer()
+            recognizer.energy_threshold = 300
+            recognizer.pause_threshold = 0.8
 
             with sr.AudioFile("voice.wav") as source:
                 audio = recognizer.record(source)
 
             try:
-                text_msg = recognizer.recognize_google(audio,language="ml-IN").lower()
+                text_msg = recognizer.recognize_google(audio, language="ml-IN").lower()
             except:
-                text_msg = recognizer.recognize_google(audio,language="en-IN").lower()
+                text_msg = recognizer.recognize_google(audio, language="en-IN").lower()
 
             text_msg = normalize_command(text_msg)
 
@@ -331,7 +333,7 @@ def whatsapp_bot():
 
             age=int(text_msg)
 
-            if age<60:
+            if age<50:
                 msg.body("Pension only for age 60+")
             else:
                 user_data[sender]["age"]=age
