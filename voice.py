@@ -8,6 +8,9 @@ import random
 import csv
 from requests.auth import HTTPBasicAuth
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+
 app = Flask(__name__)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
@@ -17,17 +20,44 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-# MULTIPLE ADMINS
 ADMIN_NUMBERS = [
     "whatsapp:+919633406610"
 ]
 
-# SAVE APPLICATION
+# ---------------- PDF GENERATION ----------------
+
+def generate_pdf(data, app_id):
+
+    filename = f"{app_id}.pdf"
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("E-Akshaya Digital Service Application", styles['Title']))
+    elements.append(Spacer(1,20))
+
+    elements.append(Paragraph(f"Application ID: {app_id}", styles['Normal']))
+    elements.append(Paragraph(f"Service: {data.get('service')}", styles['Normal']))
+    elements.append(Paragraph(f"Name: {data.get('name')}", styles['Normal']))
+    elements.append(Paragraph(f"Aadhaar: {data.get('aadhaar')}", styles['Normal']))
+    elements.append(Paragraph(f"Address: {data.get('address')}", styles['Normal']))
+    elements.append(Paragraph("Status: Submitted", styles['Normal']))
+
+    pdf = SimpleDocTemplate(filename)
+    pdf.build(elements)
+
+# ---------------- SAVE APPLICATION ----------------
+
 def save_application(data, app_id):
 
-    with open("applications.csv", "a", newline="") as f:
+    file_exists = os.path.exists("applications.csv")
+
+    with open("applications.csv","a",newline="") as f:
 
         writer = csv.writer(f)
+
+        if not file_exists:
+            writer.writerow(["ID","Service","Name","Aadhaar","Address","Status"])
 
         writer.writerow([
             app_id,
@@ -38,206 +68,205 @@ def save_application(data, app_id):
             "Submitted"
         ])
 
-# UPDATE STATUS
-def update_status(app_id, new_status):
+# ---------------- UPDATE STATUS ----------------
 
-    rows = []
+def update_status(app_id,new_status):
 
-    with open("applications.csv", "r") as f:
-        reader = csv.reader(f)
-        rows = list(reader)
+    if not os.path.exists("applications.csv"):
+        return
+
+    rows=[]
+
+    with open("applications.csv","r") as f:
+        reader=csv.reader(f)
+        rows=list(reader)
 
     for r in rows:
-        if r[0] == app_id:
-            r[5] = new_status
+        if r[0]==app_id:
+            r[5]=new_status
 
-    with open("applications.csv", "w", newline="") as f:
-        writer = csv.writer(f)
+    with open("applications.csv","w",newline="") as f:
+        writer=csv.writer(f)
         writer.writerows(rows)
 
+# ---------------- HOME ----------------
 
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
 
+# ---------------- BOT ----------------
 
-@app.route("/whatsapp", methods=["POST"])
+@app.route("/whatsapp",methods=["POST"])
 def whatsapp_bot():
 
-    resp = MessagingResponse()
-    msg = resp.message()
+    resp=MessagingResponse()
+    msg=resp.message()
 
-    sender = request.values.get("From")
-    body = request.values.get("Body")
+    sender=request.values.get("From")
+    body=request.values.get("Body")
 
-    text_msg = (body or "").strip().lower()
-    num_media = int(request.values.get("NumMedia") or 0)
+    text_msg=(body or "").strip().lower()
+    num_media=int(request.values.get("NumMedia") or 0)
 
-    print("User:", sender, text_msg)
+    print("User:",sender,text_msg)
 
 # ---------------- STATUS CHECK ----------------
 
     if text_msg.startswith("status"):
 
-        parts = text_msg.split()
+        parts=text_msg.split()
 
-        if len(parts) != 2:
+        if len(parts)!=2:
             msg.body("Use: status AKS-123456")
             return str(resp)
 
-        app_id = parts[1].upper()
+        app_id=parts[1].upper()
 
-        try:
-
-            with open("applications.csv", "r") as f:
-
-                reader = csv.reader(f)
-
-                for row in reader:
-
-                    if row[0] == app_id:
-
-                        msg.body(
-                            f"Application Status\n\n"
-                            f"ID: {row[0]}\n"
-                            f"Service: {row[1]}\n"
-                            f"Name: {row[2]}\n"
-                            f"Status: {row[5]}"
-                        )
-
-                        return str(resp)
-
-            msg.body("Application not found.")
-
-        except:
+        if not os.path.exists("applications.csv"):
             msg.body("Database not found.")
+            return str(resp)
 
+        with open("applications.csv","r") as f:
+
+            reader=csv.reader(f)
+
+            for row in reader:
+
+                if row[0]==app_id:
+
+                    msg.body(
+                        f"Application Status\n\n"
+                        f"ID: {row[0]}\n"
+                        f"Service: {row[1]}\n"
+                        f"Name: {row[2]}\n"
+                        f"Status: {row[5]}"
+                    )
+
+                    return str(resp)
+
+        msg.body("Application not found.")
         return str(resp)
 
-# ---------------- ADMIN COMMANDS ----------------
+# ---------------- ADMIN ----------------
 
     if sender in ADMIN_NUMBERS:
 
-        if text_msg == "admin":
+        if text_msg=="admin":
 
-            try:
+            if not os.path.exists("applications.csv"):
+                msg.body("No applications found.")
+                return str(resp)
 
-                with open("applications.csv", "r") as f:
+            with open("applications.csv","r") as f:
+                reader=csv.reader(f)
+                rows=list(reader)
 
-                    reader = csv.reader(f)
-                    rows = list(reader)
+            text="Recent Applications\n\n"
 
-                if not rows:
-                    msg.body("No applications found.")
-                else:
+            for r in rows[-5:]:
 
-                    text = "Recent Applications\n\n"
+                text+=(
+                    f"ID: {r[0]}\n"
+                    f"Service: {r[1]}\n"
+                    f"Name: {r[2]}\n"
+                    f"Status: {r[5]}\n\n"
+                )
 
-                    for r in rows[-5:]:
-
-                        text += (
-                            f"ID: {r[0]}\n"
-                            f"Service: {r[1]}\n"
-                            f"Name: {r[2]}\n"
-                            f"Status: {r[5]}\n\n"
-                        )
-
-                    msg.body(text)
-
-            except:
-                msg.body("No data available.")
-
+            msg.body(text)
             return str(resp)
 
         if text_msg.startswith("approve"):
 
-            app_id = text_msg.split()[1].upper()
-
-            update_status(app_id, "Approved")
-
-            msg.body(f"{app_id} Approved")
+            try:
+                app_id=text_msg.split()[1].upper()
+                update_status(app_id,"Approved")
+                msg.body(f"{app_id} Approved")
+            except:
+                msg.body("Invalid command")
 
             return str(resp)
 
         if text_msg.startswith("reject"):
 
-            app_id = text_msg.split()[1].upper()
-
-            update_status(app_id, "Rejected")
-
-            msg.body(f"{app_id} Rejected")
+            try:
+                app_id=text_msg.split()[1].upper()
+                update_status(app_id,"Rejected")
+                msg.body(f"{app_id} Rejected")
+            except:
+                msg.body("Invalid command")
 
             return str(resp)
 
-# ---------------- START COMMAND ----------------
+# ---------------- START ----------------
 
-    if text_msg in ["hi", "hello", "hai"]:
+    if text_msg in ["hi","hello","hai"]:
 
-        user_data[sender] = {"step": "menu"}
+        user_data[sender]={"step":"menu"}
 
         msg.body(
-            "Welcome to E-Akshaya Digital Service\n\n"
-            "1 Pension Application\n"
-            "2 Income Certificate\n"
-            "3 Ration Card\n\n"
-            "Reply with option number."
+            "🙏 Welcome to E-Akshaya Digital Service\n\n"
+            "1️⃣ Pension Application\n"
+            "2️⃣ Income Certificate\n"
+            "3️⃣ Ration Card\n\n"
+            "Reply with option number"
         )
 
         return str(resp)
 
 # ---------------- CANCEL ----------------
 
-    if text_msg == "cancel":
+    if text_msg=="cancel":
 
-        user_data.pop(sender, None)
+        user_data.pop(sender,None)
 
-        msg.body("Application cancelled. Type menu to start again.")
+        msg.body("❌ Application cancelled.\nType menu to restart")
 
         return str(resp)
 
 # ---------------- MENU ----------------
 
-    if text_msg in ["menu", "restart", "start"]:
+    if text_msg in ["menu","restart","start"]:
 
-        user_data[sender] = {"step": "menu"}
+        user_data[sender]={"step":"menu"}
 
         msg.body(
-            "E-Akshaya Digital Service\n\n"
-            "1 Pension Application\n"
-            "2 Income Certificate\n"
-            "3 Ration Card"
+            "📋 E-Akshaya Digital Service\n\n"
+            "1️⃣ Pension Application\n"
+            "2️⃣ Income Certificate\n"
+            "3️⃣ Ration Card"
         )
 
         return str(resp)
 
 # ---------------- VOICE ----------------
 
-    if num_media > 0:
+    if num_media>0:
 
-        media_url = request.values.get("MediaUrl0")
+        media_url=request.values.get("MediaUrl0")
 
-        audio_data = requests.get(
+        audio_data=requests.get(
             media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+            auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN)
         )
 
-        with open("voice.ogg", "wb") as f:
+        with open("voice.ogg","wb") as f:
             f.write(audio_data.content)
 
         try:
 
-            sound = AudioSegment.from_file("voice.ogg")
-            sound.export("voice.wav", format="wav")
+            sound=AudioSegment.from_file("voice.ogg")
+            sound.export("voice.wav",format="wav")
 
-            recognizer = sr.Recognizer()
+            r=sr.Recognizer()
 
             with sr.AudioFile("voice.wav") as source:
-                audio = recognizer.record(source)
+                audio=r.record(source)
 
             try:
-                text_msg = recognizer.recognize_google(audio, language="ml-IN").lower()
+                text_msg=r.recognize_google(audio,language="ml-IN").lower()
             except:
-                text_msg = recognizer.recognize_google(audio, language="en-IN").lower()
+                text_msg=r.recognize_google(audio,language="en-IN").lower()
 
         except:
             msg.body("Could not understand voice.")
@@ -247,144 +276,92 @@ def whatsapp_bot():
 
     if sender not in user_data:
 
-        user_data[sender] = {"step": "menu"}
+        user_data[sender]={"step":"menu"}
 
         msg.body(
             "E-Akshaya Digital Service\n\n"
-            "1 Pension\n"
-            "2 Income Certificate\n"
-            "3 Ration Card"
+            "1 Pension\n2 Income Certificate\n3 Ration Card"
         )
 
         return str(resp)
 
-    step = user_data[sender]["step"]
+    step=user_data[sender]["step"]
 
 # ---------------- MENU SELECT ----------------
 
-    if step == "menu":
+    if step=="menu":
 
-        if text_msg == "1":
-
-            user_data[sender]["service"] = "Pension"
-            user_data[sender]["step"] = "name"
-
+        if text_msg=="1":
+            user_data[sender]["service"]="Pension"
+            user_data[sender]["step"]="name"
             msg.body("Enter your name.")
 
-        elif text_msg == "2":
-
-            user_data[sender]["service"] = "Income Certificate"
-            user_data[sender]["step"] = "name"
-
+        elif text_msg=="2":
+            user_data[sender]["service"]="Income Certificate"
+            user_data[sender]["step"]="name"
             msg.body("Enter your name.")
 
-        elif text_msg == "3":
-
-            user_data[sender]["service"] = "Ration Card"
-            user_data[sender]["step"] = "name"
-
+        elif text_msg=="3":
+            user_data[sender]["service"]="Ration Card"
+            user_data[sender]["step"]="name"
             msg.body("Enter your name.")
 
 # ---------------- NAME ----------------
 
-    elif step == "name":
+    elif step=="name":
 
-        user_data[sender]["name"] = text_msg.title()
+        user_data[sender]["name"]=text_msg.title()
 
-        if user_data[sender]["service"] == "Pension":
+        if user_data[sender]["service"]=="Pension":
 
-            user_data[sender]["step"] = "age"
-
+            user_data[sender]["step"]="age"
             msg.body("Enter your age.")
-
-        elif user_data[sender]["service"] == "Income Certificate":
-
-            user_data[sender]["step"] = "occupation"
-
-            msg.body("Enter occupation.")
 
         else:
 
-            user_data[sender]["step"] = "family"
-
-            msg.body("Number of family members?")
+            user_data[sender]["step"]="aadhaar"
+            msg.body("Enter Aadhaar number.")
 
 # ---------------- AGE ----------------
 
-    elif step == "age":
+    elif step=="age":
 
         if not text_msg.isdigit():
-
             msg.body("Enter valid age.")
-
         else:
 
-            age = int(text_msg)
+            age=int(text_msg)
 
-            if age < 60:
-
+            if age<60:
                 msg.body("Pension only for age 60+")
-
             else:
-
-                user_data[sender]["age"] = age
-                user_data[sender]["step"] = "aadhaar"
-
+                user_data[sender]["age"]=age
+                user_data[sender]["step"]="aadhaar"
                 msg.body("Enter Aadhaar number.")
-
-# ---------------- OCCUPATION ----------------
-
-    elif step == "occupation":
-
-        user_data[sender]["occupation"] = text_msg
-        user_data[sender]["step"] = "income"
-
-        msg.body("Enter monthly income.")
-
-# ---------------- INCOME ----------------
-
-    elif step == "income":
-
-        user_data[sender]["income"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
-
-        msg.body("Enter Aadhaar number.")
-
-# ---------------- FAMILY ----------------
-
-    elif step == "family":
-
-        user_data[sender]["family"] = text_msg
-        user_data[sender]["step"] = "aadhaar"
-
-        msg.body("Enter Aadhaar number.")
 
 # ---------------- AADHAAR ----------------
 
-    elif step == "aadhaar":
+    elif step=="aadhaar":
 
-        if not text_msg.isdigit() or len(text_msg) != 12:
-
+        if not text_msg.isdigit() or len(text_msg)!=12:
             msg.body("Enter valid 12 digit Aadhaar.")
-
         else:
 
-            user_data[sender]["aadhaar"] = text_msg
-            user_data[sender]["step"] = "address"
-
+            user_data[sender]["aadhaar"]=text_msg
+            user_data[sender]["step"]="address"
             msg.body("Enter address.")
 
 # ---------------- ADDRESS ----------------
 
-    elif step == "address":
+    elif step=="address":
 
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
 
-        d = user_data[sender]
+        d=user_data[sender]
 
         msg.body(
-            f"Confirm Details\n\n"
+            f"📋 Confirm Details\n\n"
             f"Service: {d['service']}\n"
             f"Name: {d['name']}\n"
             f"Aadhaar: {d['aadhaar']}\n"
@@ -394,62 +371,66 @@ def whatsapp_bot():
 
 # ---------------- CONFIRM ----------------
 
-    elif step == "confirm":
+    elif step=="confirm":
 
-        if text_msg == "1":
+        if text_msg=="1":
 
-            app_id = "AKS-" + str(random.randint(100000, 999999))
+            app_id="AKS-"+str(random.randint(100000,999999))
 
-            save_application(user_data[sender], app_id)
+            save_application(user_data[sender],app_id)
+
+            generate_pdf(user_data[sender],app_id)
 
             msg.body(
-                f"Application Submitted\n\n"
-                f"Application ID: {app_id}\n\n"
+                f"✅ Application Submitted\n\n"
+                f"📄 Application ID: {app_id}\n"
+                f"PDF receipt generated\n\n"
                 f"Check status using:\nstatus {app_id}"
             )
 
             user_data.pop(sender)
 
-        elif text_msg == "2":
-
-            user_data[sender]["step"] = "edit_name"
+        elif text_msg=="2":
+            user_data[sender]["step"]="edit_name"
             msg.body("Enter correct name.")
 
-        elif text_msg == "3":
-
-            user_data[sender]["step"] = "edit_aadhaar"
+        elif text_msg=="3":
+            user_data[sender]["step"]="edit_aadhaar"
             msg.body("Enter correct Aadhaar.")
 
-        elif text_msg == "4":
-
-            user_data[sender]["step"] = "edit_address"
+        elif text_msg=="4":
+            user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address.")
 
-# ---------------- EDITS ----------------
+# ---------------- EDIT ----------------
 
-    elif step == "edit_name":
+    elif step=="edit_name":
 
-        user_data[sender]["name"] = text_msg.title()
-        user_data[sender]["step"] = "confirm"
-        msg.body("Name updated.")
+        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["step"]="confirm"
+        msg.body("Name updated. Type 1 to confirm.")
 
-    elif step == "edit_aadhaar":
+    elif step=="edit_aadhaar":
 
-        user_data[sender]["aadhaar"] = text_msg
-        user_data[sender]["step"] = "confirm"
-        msg.body("Aadhaar updated.")
+        if not text_msg.isdigit() or len(text_msg)!=12:
+            msg.body("Invalid Aadhaar.")
+        else:
+            user_data[sender]["aadhaar"]=text_msg
+            user_data[sender]["step"]="confirm"
+            msg.body("Aadhaar updated. Type 1 to confirm.")
 
-    elif step == "edit_address":
+    elif step=="edit_address":
 
-        user_data[sender]["address"] = text_msg
-        user_data[sender]["step"] = "confirm"
-        msg.body("Address updated.")
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
+        msg.body("Address updated. Type 1 to confirm.")
 
     return str(resp)
 
+# ---------------- RUN ----------------
 
-if __name__ == "__main__":
+if __name__=="__main__":
 
-    port = int(os.environ.get("PORT", 10000))
+    port=int(os.environ.get("PORT",10000))
 
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0",port=port)
