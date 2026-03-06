@@ -226,7 +226,10 @@ def whatsapp_bot():
 
                 reader = csv.reader(f)
 
-                for row in reader:
+               for row in reader:
+
+                    if len(row) < 6:
+                        continue
 
                     if row[0] == app_id:
 
@@ -263,6 +266,9 @@ def whatsapp_bot():
             text="Recent Applications\n\n"
 
             for r in rows[-5:]:
+
+                if len(r) < 6:
+                    continue
 
                 text+=(
                     f"ID:{r[0]}\n"
@@ -476,6 +482,7 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
 
 
