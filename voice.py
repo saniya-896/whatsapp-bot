@@ -132,13 +132,6 @@ def get_pdf(filename):
 
 # ---------------- HOME ----------------
 
-@app.route("/")
-def home():
-    return "WhatsApp Bot Running"
-
-
-# ---------------- WHATSAPP BOT ----------------
-
 @app.route("/whatsapp",methods=["POST"])
 def whatsapp_bot():
 
@@ -151,13 +144,20 @@ def whatsapp_bot():
     user_text = (body or "").strip().lower()
     text_msg = normalize_command(user_text)
 
+    # CANCEL
+    if user_text == "cancel":
+
+        if sender in user_data:
+            user_data.pop(sender)
+
+        msg.body("❌ Application Cancelled\nType menu to start again.")
+        return str(resp)
+
     num_media = int(request.values.get("NumMedia") or 0)
 
-
-# ---------------- VOICE SUPPORT ----------------
+    # ---------------- VOICE SUPPORT ----------------
 
     if num_media > 0:
-
         media_url = request.values.get("MediaUrl0")
 
         audio_data = requests.get(
@@ -501,4 +501,5 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
