@@ -399,7 +399,7 @@ def whatsapp_bot():
 
             generate_pdf(user_data[sender],app_id)
 
-           pdf_url = f"https://whatsapp-bot-ybyp.onrender.com/pdf/{app_id}.pdf"
+          pdf_url = f"https://whatsapp-bot-production-81af.up.railway.app/pdf/{app_id}.pdf"
 
             client.messages.create(
 
@@ -466,3 +466,4 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",10000))
     app.run(host="0.0.0.0",port=port)
+
