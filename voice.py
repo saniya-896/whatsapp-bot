@@ -170,54 +170,81 @@ def whatsapp_bot():
                 audio = recognizer.record(source)
 
             try:
-                text_msg = recognizer.recognize_google(audio, language="ml-IN").lower()
+                spoken = recognizer.recognize_google(audio, language="ml-IN").lower()
             except:
-                text_msg = recognizer.recognize_google(audio, language="en-IN").lower()
+                spoken = recognizer.recognize_google(audio, language="en-IN").lower()
 
-            text_msg = normalize_command(text_msg)
+            user_text = spoken
+            text_msg = normalize_command(spoken)
 
         except:
             msg.body("Voice not understood")
             return str(resp)
 
-
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
 
-        parts = user_text.split()
+        parts = user_text.strip().split()
 
-        if len(parts)!=2:
-            msg.body("Use: status AKS-123456")
-            return str(resp)
+        # if user only types "status"
+        if len(parts) == 1:
 
-        app_id=parts[1].upper()
+            if not os.path.exists("applications.csv"):
+                msg.body("No applications found.")
+                return str(resp)
 
-        if not os.path.exists("applications.csv"):
-            msg.body("Database empty")
-            return str(resp)
+            with open("applications.csv","r") as f:
+                reader = list(csv.reader(f))
 
-        with open("applications.csv","r") as f:
-
-            reader=csv.reader(f)
-
-            for row in reader:
-
-                if row[0]==app_id:
-
-                    msg.body(
-                        f"Application Status\n\n"
-                        f"ID:{row[0]}\n"
-                        f"Service:{row[1]}\n"
-                        f"Name:{row[2]}\n"
-                        f"Status:{row[5]}"
-                    )
-
+                if len(reader) <= 1:
+                    msg.body("No applications yet.")
                     return str(resp)
 
-        msg.body("Application not found")
-        return str(resp)
+                last = reader[-1]
 
+                msg.body(
+                    f"Latest Application Status\n\n"
+                    f"ID: {last[0]}\n"
+                    f"Service: {last[1]}\n"
+                    f"Name: {last[2]}\n"
+                    f"Status: {last[5]}"
+                )
+
+                return str(resp)
+
+        # if user types "status AKS-123456"
+        if len(parts) == 2:
+
+            app_id = parts[1].upper()
+
+            if not os.path.exists("applications.csv"):
+                msg.body("Database empty")
+                return str(resp)
+
+            with open("applications.csv","r") as f:
+
+                reader = csv.reader(f)
+
+                for row in reader:
+
+                    if row[0] == app_id:
+
+                        msg.body(
+                            f"Application Status\n\n"
+                            f"ID: {row[0]}\n"
+                            f"Service: {row[1]}\n"
+                            f"Name: {row[2]}\n"
+                            f"Status: {row[5]}"
+                        )
+
+                        return str(resp)
+
+            msg.body("Application not found.")
+            return str(resp)
+
+        msg.body("Use: status AKS-123456")
+        return str(resp)
 
 # ---------------- ADMIN ----------------
 
@@ -449,6 +476,7 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
 
 
