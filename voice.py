@@ -17,7 +17,7 @@ AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
 
-# SAVE APPLICATION TO CSV
+# CSV SAVE FUNCTION
 def save_application(data):
 
     with open("applications.csv", "a", newline="") as file:
@@ -279,6 +279,7 @@ def whatsapp_bot():
         if text_msg == "1":
 
             save_application(user_data[sender])
+            print("APPLICATION SAVED:", user_data[sender])
 
             application_id = "AKS-" + str(random.randint(100000, 999999))
 
