@@ -157,7 +157,7 @@ def whatsapp_bot():
 
         try:
 
-            sound=AudioSegment.from_file("voice.ogg")
+            sound = AudioSegment.from_file("voice.ogg", format="ogg")
             sound=sound.set_channels(1)
             sound=sound.set_frame_rate(16000)
             sound.export("voice.wav",format="wav")
@@ -405,3 +405,4 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
