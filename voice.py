@@ -11,7 +11,7 @@ from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-app = Flask(__name__)
+app = Flask(_name_)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
@@ -25,15 +25,6 @@ user_data = {}
 ADMIN_NUMBERS = [
     "whatsapp:+919633406610"
 ]
-
-# -------- GOVERNMENT FORM LINKS --------
-
-form_links = {
-    "Pension": "https://arun-goog.github.io/Online-Helper/forms.html",
-    "Income Certificate": "https://arun-goog.github.io/Online-Helper/forms.html",
-    "Ration Card": "https://arun-goog.github.io/Online-Helper/forms.html"
-}
-
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -302,6 +293,7 @@ def whatsapp_bot():
 
         return str(resp)
 
+
 # ---------------- USER INIT ----------------
 
     if sender not in user_data:
@@ -410,12 +402,9 @@ def whatsapp_bot():
             base_url = request.host_url
             pdf_url = f"{base_url}pdf/{app_id}.pdf"
 
-            form_link = form_links.get(user_data[sender]["service"], "")
-
             msg.body(
                 f"Application Submitted\n\n"
-                f"Application ID: {app_id}\n\n"
-                f"Download Official Form:\n{form_link}\n\n"
+                f"Application ID: {app_id}\n"
                 f"Check status:\nstatus {app_id}"
             )
 
@@ -506,7 +495,7 @@ def whatsapp_bot():
 
     return str(resp)
 
-if __name__=="__main__":
+if _name=="main_":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
