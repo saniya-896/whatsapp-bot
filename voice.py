@@ -158,6 +158,7 @@ def whatsapp_bot():
     # ---------------- VOICE SUPPORT ----------------
 
     if num_media > 0:
+
         media_url = request.values.get("MediaUrl0")
 
         audio_data = requests.get(
@@ -165,12 +166,14 @@ def whatsapp_bot():
             auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
         )
 
-        with open("voice.opus","wb") as f:
+        with open("voice.ogg", "wb") as f:
             f.write(audio_data.content)
 
         try:
 
-            sound = AudioSegment.from_file("voice.opus", format="ogg")
+            sound = AudioSegment.from_file("voice.ogg")
+            sound = sound.set_channels(1)
+            sound = sound.set_frame_rate(16000)
             sound.export("voice.wav", format="wav")
 
             recognizer = sr.Recognizer()
@@ -179,18 +182,21 @@ def whatsapp_bot():
                 audio = recognizer.record(source)
 
             try:
-                spoken = recognizer.recognize_google(audio, language="ml-IN").lower()
+                spoken = recognizer.recognize_google(audio, language="ml-IN")
             except:
-                spoken = recognizer.recognize_google(audio, language="en-IN").lower()
+                spoken = recognizer.recognize_google(audio, language="en-IN")
+
+            spoken = spoken.lower()
+
+            print("VOICE TEXT:", spoken)
 
             user_text = spoken
             text_msg = normalize_command(spoken)
 
-        except:
-            msg.body("Voice not understood")
+        except Exception as e:
+            print("VOICE ERROR:", e)
+            msg.body("Voice not understood. Please send again.")
             return str(resp)
-
-
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
@@ -501,3 +507,4 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
