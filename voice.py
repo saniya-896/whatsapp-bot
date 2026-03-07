@@ -29,9 +29,9 @@ ADMIN_NUMBERS = [
 # -------- GOVERNMENT FORM LINKS --------
 
 form_links = {
-    "Pension": "https://edistrict.kerala.gov.in/your_actual_link_here",
-    "Income Certificate": "https://edistrict.kerala.gov.in/your_actual_link_here",
-    "Ration Card": "https://civilsupplieskerala.gov.in/your_actual_link_here"
+    "Pension": "https://arun-goog.github.io/Online-Helper/forms.html",
+    "Income Certificate": "https://arun-goog.github.io/Online-Helper/forms.html",
+    "Ration Card": "https://arun-goog.github.io/Online-Helper/forms.html"
 }
 
 
