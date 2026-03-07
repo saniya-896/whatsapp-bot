@@ -178,7 +178,7 @@ def whatsapp_bot():
 
         try:
 
-            sound = AudioSegment.from_file("voice.ogg")
+            sound = AudioSegment.from_file("voice.ogg", format="ogg")
             sound = sound.set_channels(1)
             sound = sound.set_frame_rate(16000)
             sound.export("voice.wav", format="wav")
@@ -193,6 +193,9 @@ def whatsapp_bot():
             except:
                 text_msg = recognizer.recognize_google(audio, language="en-IN").lower()
 
+            # normalize voice command
+            text_msg = normalize_command(text_msg)
+
         except Exception:
             msg.body("❌ Could not understand voice.")
             return str(resp)
@@ -204,9 +207,9 @@ def whatsapp_bot():
                 os.remove("voice.wav")
 # ---------------- STATUS CHECK ----------------
 
-    if user_text.startswith("status"):
+    if text_msg.startswith("status"):
 
-        parts = user_text.split()
+        parts = text_msg.split()
 
         if len(parts) != 2:
             msg.body("Use: status AKS-123456")
@@ -512,5 +515,6 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
 
