@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: whatsapp-bot
-    env: python
-    buildCommand: |
-      apt-get update
-      apt-get install -y ffmpeg
-      pip install -r requirements.txt
-    startCommand: gunicorn voice:app --bind 0.0.0.0:$PORT
