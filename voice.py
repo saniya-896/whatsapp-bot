@@ -7,11 +7,12 @@ from pydub import AudioSegment
 import os
 import random
 import csv
+import time
 from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-app = Flask(_name_)
+app = Flask(__name__)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
@@ -131,13 +132,6 @@ def get_pdf(filename):
 
 # ---------------- HOME ----------------
 
-@app.route("/")
-def home():
-    return "WhatsApp Bot Running"
-
-
-# ---------------- WHATSAPP BOT ----------------
-
 @app.route("/whatsapp",methods=["POST"])
 def whatsapp_bot():
 
@@ -150,13 +144,20 @@ def whatsapp_bot():
     user_text = (body or "").strip().lower()
     text_msg = normalize_command(user_text)
 
+    # CANCEL
+    if user_text == "cancel":
+
+        if sender in user_data:
+            user_data.pop(sender)
+
+        msg.body("❌ Application Cancelled\nType menu to start again.")
+        return str(resp)
+
     num_media = int(request.values.get("NumMedia") or 0)
 
-
-# ---------------- VOICE SUPPORT ----------------
+    # ---------------- VOICE SUPPORT ----------------
 
     if num_media > 0:
-
         media_url = request.values.get("MediaUrl0")
 
         audio_data = requests.get(
@@ -394,41 +395,42 @@ def whatsapp_bot():
         if text_msg=="1":
 
             app_id="AKS-"+str(random.randint(100000,999999))
-
+    
             save_application(user_data[sender],app_id)
-
+    
             generate_pdf(user_data[sender],app_id)
-
+            time.sleep(1)
+    
             base_url = request.host_url
             pdf_url = f"{base_url}pdf/{app_id}.pdf"
-
+    
             msg.body(
                 f"Application Submitted\n\n"
                 f"Application ID: {app_id}\n"
                 f"Check status:\nstatus {app_id}"
             )
-
+    
             try:
                 client.messages.create(
                     from_="whatsapp:+14155238886",
                     to=sender,
-                    body="Your Application Receipt",
+                    body=f"📄 Your Application Receipt\nApplication ID: {app_id}",
                     media_url=[pdf_url]
                 )
-            except:
-                pass
-
+            except Exception as e:
+                 print("Twilio Error:", e)
+    
             user_data.pop(sender)
             return str(resp)
-
+    
         elif text_msg=="2":
             user_data[sender]["step"]="edit_name"
             msg.body("Enter correct name")
-
+    
         elif text_msg=="3":
             user_data[sender]["step"]="edit_aadhaar"
             msg.body("Enter correct Aadhaar number")
-
+    
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
@@ -495,7 +497,7 @@ def whatsapp_bot():
 
     return str(resp)
 
-if _name=="main_":
+if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
-    app.run(host="0.0.0.0",port=port)  how to link e district
+    app.run(host="0.0.0.0",port=port)
