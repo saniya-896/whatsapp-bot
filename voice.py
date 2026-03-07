@@ -161,39 +161,42 @@ def whatsapp_bot():
 
     num_media = int(request.values.get("NumMedia") or 0)
 
-
-# ---------------- VOICE SUPPORT ----------------
-
+    # ---------------- VOICE SUPPORT ----------------
     if num_media > 0:
-
-        content_type = request.values.get("MediaContentType0","")
+    
+        content_type = request.values.get("MediaContentType0", "")
 
         if "audio" not in content_type:
-            msg.body("❌ Please send a voice message")
+            msg.body("Please send a voice message")
             return str(resp)
 
         media_url = request.values.get("MediaUrl0")
 
-        voice_ogg="/tmp/voice.ogg"
-        voice_wav="/tmp/voice.wav"
+        if not media_url:
+            msg.body("Voice message missing")
+            return str(resp)
 
-        audio_data = requests.get(
+        voice_ogg = "/tmp/voice.ogg"
+        voice_wav = "/tmp/voice.wav"
+
+        response = requests.get(
             media_url,
             auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN),
             stream=True
         )
 
-        with open(voice_ogg,"wb") as f:
-            for chunk in audio_data.iter_content(1024):
-                f.write(chunk)
+        with open(voice_ogg, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
 
-        if os.path.getsize(voice_ogg)==0:
-            msg.body("❌ Voice empty. Send again.")
+        if os.path.getsize(voice_ogg) == 0:
+            msg.body("Voice message empty. Send again.")
             return str(resp)
 
         try:
 
-            sound = AudioSegment.from_file(voice_ogg)
+            sound = AudioSegment.from_file(voice_ogg, format="ogg")
             sound = sound.set_channels(1)
             sound = sound.set_frame_rate(16000)
             sound.export(voice_wav, format="wav")
@@ -208,25 +211,23 @@ def whatsapp_bot():
             except:
                 spoken = recognizer.recognize_google(audio, language="en-IN").lower()
 
-            print("VOICE:",spoken)
+            print("VOICE TEXT:", spoken)
 
             user_text = spoken
             text_msg = normalize_command(spoken)
 
         except Exception as e:
-            print(e)
-            msg.body("❌ Voice not understood")
+            print("VOICE ERROR:", e)
+            msg.body("Voice not understood")
             return str(resp)
 
         finally:
-
             if os.path.exists(voice_ogg):
                 os.remove(voice_ogg)
 
             if os.path.exists(voice_wav):
                 os.remove(voice_wav)
-
-
+       
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
@@ -441,3 +442,4 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
