@@ -157,7 +157,14 @@ def whatsapp_bot():
 
     # ---------------- VOICE SUPPORT ----------------
 
+
     if num_media > 0:
+
+        content_type = request.values.get("MediaContentType0", "")
+
+        if "audio" not in content_type:
+            msg.body("❌ Please send a voice message.")
+            return str(resp)
 
         media_url = request.values.get("MediaUrl0")
 
@@ -182,21 +189,19 @@ def whatsapp_bot():
                 audio = recognizer.record(source)
 
             try:
-                spoken = recognizer.recognize_google(audio, language="ml-IN")
+                text_msg = recognizer.recognize_google(audio, language="ml-IN").lower()
             except:
-                spoken = recognizer.recognize_google(audio, language="en-IN")
+                text_msg = recognizer.recognize_google(audio, language="en-IN").lower()
 
-            spoken = spoken.lower()
-
-            print("VOICE TEXT:", spoken)
-
-            user_text = spoken
-            text_msg = normalize_command(spoken)
-
-        except Exception as e:
-            print("VOICE ERROR:", e)
-            msg.body("Voice not understood. Please send again.")
+        except Exception:
+            msg.body("❌ Could not understand voice.")
             return str(resp)
+
+        finally:
+            if os.path.exists("voice.ogg"):
+                os.remove("voice.ogg")
+            if os.path.exists("voice.wav"):
+                os.remove("voice.wav")
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
@@ -507,4 +512,5 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
+
 
