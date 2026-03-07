@@ -1,10 +1,13 @@
 from flask import Flask, request, send_file
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
+import requests
+import speech_recognition as sr
+from pydub import AudioSegment
 import os
 import random
 import csv
-import time
+from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -15,6 +18,8 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 client = Client(ACCOUNT_SID, AUTH_TOKEN)
 
+AudioSegment.converter = "/usr/bin/ffmpeg"
+
 user_data = {}
 
 ADMIN_NUMBERS = [
@@ -24,10 +29,11 @@ ADMIN_NUMBERS = [
 # -------- GOVERNMENT FORM LINKS --------
 
 form_links = {
-"Pension":"https://arun-goog.github.io/Online-Helper/forms.html",
-"Income Certificate":"https://arun-goog.github.io/Online-Helper/forms.html",
-"Ration Card":"https://arun-goog.github.io/Online-Helper/forms.html"
+    "Pension": "https://edistrict.kerala.gov.in/your_actual_link_here",
+    "Income Certificate": "https://edistrict.kerala.gov.in/your_actual_link_here",
+    "Ration Card": "https://civilsupplieskerala.gov.in/your_actual_link_here"
 }
+
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -35,13 +41,13 @@ def normalize_command(text):
 
     text = text.lower()
 
-    if "pension" in text:
+    if any(w in text for w in ["pension","pension venam","പെൻഷൻ"]):
         return "1"
 
-    if "income" in text:
+    if any(w in text for w in ["income","income certificate","ഇൻകം"]):
         return "2"
 
-    if "ration" in text:
+    if any(w in text for w in ["ration","ration card","റേഷൻ"]):
         return "3"
 
     return text
@@ -132,6 +138,12 @@ def get_pdf(filename):
 
     return "PDF not found", 404
 
+# ---------------- HOME ----------------
+
+@app.route("/")
+def home():
+    return "WhatsApp Bot Running"
+
 
 # ---------------- WHATSAPP BOT ----------------
 
@@ -146,6 +158,133 @@ def whatsapp_bot():
 
     user_text = (body or "").strip().lower()
     text_msg = normalize_command(user_text)
+
+    num_media = int(request.values.get("NumMedia") or 0)
+
+
+# ---------------- VOICE SUPPORT ----------------
+
+    if num_media > 0:
+
+        media_url = request.values.get("MediaUrl0")
+
+        audio_data = requests.get(
+            media_url,
+            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
+        )
+
+        with open("voice.opus","wb") as f:
+            f.write(audio_data.content)
+
+        try:
+
+            sound = AudioSegment.from_file("voice.opus", format="ogg")
+            sound.export("voice.wav", format="wav")
+
+            recognizer = sr.Recognizer()
+
+            with sr.AudioFile("voice.wav") as source:
+                audio = recognizer.record(source)
+
+            try:
+                spoken = recognizer.recognize_google(audio, language="ml-IN").lower()
+            except:
+                spoken = recognizer.recognize_google(audio, language="en-IN").lower()
+
+            user_text = spoken
+            text_msg = normalize_command(spoken)
+
+        except:
+            msg.body("Voice not understood")
+            return str(resp)
+
+
+# ---------------- STATUS CHECK ----------------
+
+    if user_text.startswith("status"):
+
+        parts = user_text.split()
+
+        if len(parts) != 2:
+            msg.body("Use: status AKS-123456")
+            return str(resp)
+
+        app_id = parts[1].upper()
+
+        if not os.path.exists("applications.csv"):
+            msg.body("Database empty")
+            return str(resp)
+
+        with open("applications.csv","r") as f:
+
+            reader = csv.reader(f)
+
+            for row in reader:
+
+                if len(row) < 6:
+                    continue
+
+                if row[0] == app_id:
+
+                    msg.body(
+                        f"Application Status\n\n"
+                        f"ID: {row[0]}\n"
+                        f"Service: {row[1]}\n"
+                        f"Name: {row[2]}\n"
+                        f"Status: {row[5]}"
+                    )
+
+                    return str(resp)
+
+        msg.body("Application not found")
+        return str(resp)
+
+
+# ---------------- ADMIN ----------------
+
+    if sender in ADMIN_NUMBERS:
+
+        if text_msg == "admin":
+
+            if not os.path.exists("applications.csv"):
+                msg.body("No applications yet")
+                return str(resp)
+
+            with open("applications.csv","r") as f:
+                rows=list(csv.reader(f))
+
+            text="Recent Applications\n\n"
+
+            for r in rows[-5:]:
+
+                if len(r) < 6:
+                    continue
+
+                text+=(
+                    f"ID:{r[0]}\n"
+                    f"Service:{r[1]}\n"
+                    f"Name:{r[2]}\n"
+                    f"Status:{r[5]}\n\n"
+                )
+
+            msg.body(text)
+            return str(resp)
+
+        if text_msg.startswith("approve"):
+
+            app_id=text_msg.split()[1].upper()
+            update_status(app_id,"Approved")
+
+            msg.body(f"{app_id} Approved")
+            return str(resp)
+
+        if text_msg.startswith("reject"):
+
+            app_id=text_msg.split()[1].upper()
+            update_status(app_id,"Rejected")
+
+            msg.body(f"{app_id} Rejected")
+            return str(resp)
 
 
 # ---------------- START ----------------
@@ -162,7 +301,6 @@ def whatsapp_bot():
         )
 
         return str(resp)
-
 
 # ---------------- USER INIT ----------------
 
@@ -257,8 +395,7 @@ def whatsapp_bot():
             "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
         )
 
-
-# ---------------- CONFIRM ----------------
+ # ---------------- CONFIRM ----------------
 
     elif step=="confirm":
 
@@ -270,7 +407,10 @@ def whatsapp_bot():
 
             generate_pdf(user_data[sender],app_id)
 
-            form_link = form_links.get(user_data[sender]["service"],"")
+            base_url = request.host_url
+            pdf_url = f"{base_url}pdf/{app_id}.pdf"
+
+            form_link = form_links.get(user_data[sender]["service"], "")
 
             msg.body(
                 f"Application Submitted\n\n"
@@ -279,8 +419,17 @@ def whatsapp_bot():
                 f"Check status:\nstatus {app_id}"
             )
 
-            user_data.pop(sender)
+            try:
+                client.messages.create(
+                    from_="whatsapp:+14155238886",
+                    to=sender,
+                    body="Your Application Receipt",
+                    media_url=[pdf_url]
+                )
+            except:
+                pass
 
+            user_data.pop(sender)
             return str(resp)
 
         elif text_msg=="2":
@@ -289,42 +438,73 @@ def whatsapp_bot():
 
         elif text_msg=="3":
             user_data[sender]["step"]="edit_aadhaar"
-            msg.body("Enter correct Aadhaar")
+            msg.body("Enter correct Aadhaar number")
 
         elif text_msg=="4":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
 
-
-# ---------------- EDIT NAME ----------------
+    # ---------------- EDIT NAME ----------------
 
     elif step=="edit_name":
 
         user_data[sender]["name"]=text_msg.title()
         user_data[sender]["step"]="confirm"
 
+        d=user_data[sender]
 
-# ---------------- EDIT AADHAAR ----------------
+        msg.body(
+            f"Confirm Details\n\n"
+            f"Service:{d['service']}\n"
+            f"Name:{d['name']}\n"
+            f"Aadhaar:{d['aadhaar']}\n"
+            f"Address:{d['address']}\n\n"
+            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+        )
+
+
+    # ---------------- EDIT AADHAAR ----------------
 
     elif step=="edit_aadhaar":
 
         if not text_msg.isdigit() or len(text_msg)!=12:
-            msg.body("Enter valid Aadhaar")
+            msg.body("Enter valid 12 digit Aadhaar")
+
         else:
             user_data[sender]["aadhaar"]=text_msg
             user_data[sender]["step"]="confirm"
 
+            d=user_data[sender]
 
-# ---------------- EDIT ADDRESS ----------------
+            msg.body(
+                f"Confirm Details\n\n"
+                f"Service:{d['service']}\n"
+                f"Name:{d['name']}\n"
+                f"Aadhaar:{d['aadhaar']}\n"
+                f"Address:{d['address']}\n\n"
+                "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+            )
+
+
+        # ---------------- EDIT ADDRESS ----------------
 
     elif step=="edit_address":
 
         user_data[sender]["address"]=text_msg
         user_data[sender]["step"]="confirm"
 
+        d=user_data[sender]
+
+        msg.body(
+            f"Confirm Details\n\n"
+            f"Service:{d['service']}\n"
+            f"Name:{d['name']}\n"
+            f"Aadhaar:{d['aadhaar']}\n"
+            f"Address:{d['address']}\n\n"
+            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+        )
 
     return str(resp)
-
 
 if __name__=="__main__":
 
