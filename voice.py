@@ -42,7 +42,22 @@ def normalize_command(text):
 
     return text
 
+# ---------------- SHOW CONFIRM SCREEN ----------------
 
+def show_confirm(msg, data):
+
+    msg.body(
+        f"Confirm Details\n\n"
+        f"Service: {data['service']}\n"
+        f"Name: {data['name']}\n"
+        f"Aadhaar: {data['aadhaar']}\n"
+        f"Address: {data['address']}\n\n"
+        "1 Confirm\n"
+        "2 Edit Name\n"
+        "3 Edit Aadhaar\n"
+        "4 Edit Address\n"
+        "5 Cancel Application"
+    )
 # ---------------- PDF GENERATION ----------------
 
 def generate_pdf(data, app_id):
@@ -447,43 +462,49 @@ def whatsapp_bot():
 
     elif step=="edit_name":
 
-        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["name"] = text_msg.title()
 
-        user_data[sender]["step"]="confirm"
+        user_data[sender]["step"] = "confirm"
 
-        show_confirm(msg,user_data[sender])
+        show_confirm(msg, user_data[sender])
+
+        return str(resp)
 
 
 # ---------------- EDIT AADHAAR ----------------
 
     elif step=="edit_aadhaar":
 
-        if not text_msg.isdigit() or len(text_msg)!=12:
+        if not text_msg.isdigit() or len(text_msg) != 12:
             msg.body("Enter valid 12 digit Aadhaar")
             return str(resp)
 
-        user_data[sender]["aadhaar"]=text_msg
+        user_data[sender]["aadhaar"] = text_msg
 
-        user_data[sender]["step"]="confirm"
+        user_data[sender]["step"] = "confirm"
 
-        show_confirm(msg,user_data[sender])
+        show_confirm(msg, user_data[sender])
+
+        return str(resp)
 
 
 # ---------------- EDIT ADDRESS ----------------
 
     elif step=="edit_address":
 
-        user_data[sender]["address"]=text_msg
+        user_data[sender]["address"] = text_msg
 
-        user_data[sender]["step"]="confirm"
+        user_data[sender]["step"] = "confirm"
 
-        show_confirm(msg,user_data[sender])
+        show_confirm(msg, user_data[sender])
+
+        return str(resp)
 
 
     return str(resp)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
 
-    port=int(os.environ.get("PORT",8080))
-    app.run(host="0.0.0.0",port=port)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
