@@ -1,7 +1,9 @@
 from flask import Flask, request, send_file
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
-import os, csv, random
+import os
+import csv
+import random
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -21,17 +23,18 @@ ADMIN_NUMBERS = ["whatsapp:+919633406610"]
 def generate_pdf(data, app_id):
 
     filename = f"/tmp/{app_id}.pdf"
+
     styles = getSampleStyleSheet()
 
-    elements=[]
-    elements.append(Paragraph("E-Akshaya Digital Service Application",styles['Title']))
+    elements = []
+    elements.append(Paragraph("E-Akshaya Digital Service Application", styles['Title']))
     elements.append(Spacer(1,20))
 
     for k,v in data.items():
-        if k!="step":
-            elements.append(Paragraph(f"{k} : {v}",styles['Normal']))
+        if k != "step":
+            elements.append(Paragraph(f"{k} : {v}", styles['Normal']))
 
-    pdf=SimpleDocTemplate(filename)
+    pdf = SimpleDocTemplate(filename)
     pdf.build(elements)
 
     return filename
@@ -39,13 +42,13 @@ def generate_pdf(data, app_id):
 
 # ---------------- SAVE CSV ----------------
 
-def save_application(data,app_id):
+def save_application(data, app_id):
 
-    file_exists=os.path.exists("applications.csv")
+    file_exists = os.path.exists("applications.csv")
 
     with open("applications.csv","a",newline="") as f:
 
-        writer=csv.writer(f)
+        writer = csv.writer(f)
 
         if not file_exists:
             writer.writerow(["ID","Service","Name","Aadhaar","Address","Status"])
@@ -60,7 +63,7 @@ def save_application(data,app_id):
         ])
 
 
-# ---------------- STATUS CHECK ----------------
+# ---------------- STATUS ----------------
 
 def check_status(app_id):
 
@@ -69,10 +72,9 @@ def check_status(app_id):
 
     with open("applications.csv","r") as f:
 
-        reader=csv.reader(f)
+        reader = csv.reader(f)
 
         for r in reader:
-
             if len(r)>=6 and r[0]==app_id:
                 return r
 
@@ -97,6 +99,31 @@ def update_status(app_id,new_status):
 
     with open("applications.csv","w",newline="") as f:
         csv.writer(f).writerows(rows)
+
+
+# ---------------- CONFIRM SCREEN ----------------
+
+def show_confirmation(sender,msg):
+
+    d=user_data[sender]
+
+    details="Confirm Details\n\n"
+
+    for k,v in d.items():
+        if k!="step":
+            details+=f"{k.capitalize()} : {v}\n"
+
+    details+=(
+        "\n1 Confirm\n"
+        "2 Edit Name\n"
+        "3 Edit Aadhaar\n"
+        "4 Edit Address\n"
+        "5 Cancel"
+    )
+
+    msg.body(details)
+
+    user_data[sender]["step"]="confirm_choice"
 
 
 # ---------------- HOME ----------------
@@ -148,11 +175,11 @@ def whatsapp_bot():
         user_data[sender]={"step":"menu"}
 
         msg.body(
-            "Welcome to E-Akshaya Service\n\n"
+            "Welcome to E-Akshaya Services\n\n"
             "1 Pension Application\n"
             "2 Income Certificate\n"
             "3 Ration Card\n\n"
-            "Type cancel anytime to stop."
+            "Type cancel anytime."
         )
 
         return str(resp)
@@ -190,18 +217,26 @@ def whatsapp_bot():
 
         if text.startswith("approve"):
 
-            app_id=text.split()[1].upper()
-            update_status(app_id,"Approved")
+            parts=text.split()
 
-            msg.body(f"{app_id} Approved")
+            if len(parts)!=2:
+                msg.body("Use: approve AKS-123456")
+                return str(resp)
+
+            update_status(parts[1].upper(),"Approved")
+            msg.body("Application Approved")
             return str(resp)
 
         if text.startswith("reject"):
 
-            app_id=text.split()[1].upper()
-            update_status(app_id,"Rejected")
+            parts=text.split()
 
-            msg.body(f"{app_id} Rejected")
+            if len(parts)!=2:
+                msg.body("Use: reject AKS-123456")
+                return str(resp)
+
+            update_status(parts[1].upper(),"Rejected")
+            msg.body("Application Rejected")
             return str(resp)
 
 
@@ -243,13 +278,12 @@ def whatsapp_bot():
         if service=="Pension":
             user_data[sender]["step"]="age"
             msg.body("Enter Age")
-
         else:
             user_data[sender]["step"]="aadhaar"
             msg.body("Enter Aadhaar Number")
 
 
-# ---------------- AGE (PENSION VALIDATION) ----------------
+# ---------------- AGE ----------------
 
     elif step=="age":
 
@@ -259,8 +293,8 @@ def whatsapp_bot():
 
         age=int(text)
 
-        if age < 50:
-            msg.body("Pension available only for age 50 and above.")
+        if age<50:
+            msg.body("Pension available only for age 50+")
             return str(resp)
 
         user_data[sender]["age"]=age
@@ -297,6 +331,10 @@ def whatsapp_bot():
 
     elif step=="mobile":
 
+        if not text.isdigit() or len(text)!=10:
+            msg.body("Enter valid 10 digit mobile")
+            return str(resp)
+
         user_data[sender]["mobile"]=text
         user_data[sender]["step"]="address"
 
@@ -312,17 +350,14 @@ def whatsapp_bot():
         service=user_data[sender]["service"]
 
         if service=="Pension":
-
             user_data[sender]["step"]="income"
             msg.body("Enter Annual Income")
 
         elif service=="Income":
-
             user_data[sender]["step"]="occupation"
             msg.body("Enter Occupation")
 
         elif service=="Ration":
-
             user_data[sender]["step"]="card"
             msg.body("Enter Card Type")
 
@@ -342,7 +377,7 @@ def whatsapp_bot():
     elif step=="ration":
 
         user_data[sender]["ration"]=text
-        user_data[sender]["step"]="confirm"
+        show_confirmation(sender,msg)
 
 
 # ---------------- OCCUPATION ----------------
@@ -385,29 +420,12 @@ def whatsapp_bot():
         msg.body("Enter Ration Card Number")
 
 
-# ---------------- CONFIRM ----------------
+# ---------------- CARD TYPE ----------------
 
-    elif step=="confirm":
+    elif step=="card":
 
-        d=user_data[sender]
-
-        details="Confirm Details\n\n"
-
-        for k,v in d.items():
-            if k!="step":
-                details+=f"{k.capitalize()} : {v}\n"
-
-        details+=(
-            "\n1 Confirm\n"
-            "2 Edit Name\n"
-            "3 Edit Aadhaar\n"
-            "4 Edit Address\n"
-            "5 Cancel"
-        )
-
-        msg.body(details)
-
-        user_data[sender]["step"]="confirm_choice"
+        user_data[sender]["card"]=text
+        show_confirmation(sender,msg)
 
 
 # ---------------- CONFIRM CHOICE ----------------
@@ -449,7 +467,6 @@ def whatsapp_bot():
 
             user_data.pop(sender)
             msg.body("Application Cancelled\nType menu to restart")
-
 
     return str(resp)
 
