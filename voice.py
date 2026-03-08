@@ -402,21 +402,21 @@ def whatsapp_bot():
     elif step=="confirm":
 
         if text_msg=="1":
-
+    
             app_id="AKS-"+str(random.randint(100000,999999))
-
+    
             save_application(user_data[sender],app_id)
-
+    
             generate_pdf(user_data[sender],app_id)
-
+    
             pdf_url=f"{request.host_url}pdf/{app_id}.pdf"
-
+    
             msg.body(
                 f"Application Submitted\n\n"
                 f"Application ID: {app_id}\n"
                 f"Check status:\nstatus {app_id}"
             )
-
+    
             try:
                 client.messages.create(
                     from_="whatsapp:+14155238886",
@@ -426,13 +426,97 @@ def whatsapp_bot():
                 )
             except:
                 pass
-
+    
             user_data.pop(sender)
+            return str(resp)
+    
+        elif text_msg=="2":
+            user_data[sender]["step"]="edit_name"
+            msg.body("Enter correct name")
+            return str(resp)
+    
+        elif text_msg=="3":
+            user_data[sender]["step"]="edit_aadhaar"
+            msg.body("Enter correct Aadhaar number")
+            return str(resp)
+    
+        elif text_msg=="4":
+            user_data[sender]["step"]="edit_address"
+            msg.body("Enter correct address")
+            return str(resp)
+    
+        else:
+            msg.body("Please choose 1, 2, 3 or 4")
+            return str(resp)
+    
+    
+    # ---------------- EDIT NAME ----------------
+    
+    elif step=="edit_name":
+    
+        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["step"]="confirm"
+    
+        d=user_data[sender]
+    
+        msg.body(
+            f"Updated Details\n\n"
+            f"Service:{d['service']}\n"
+            f"Name:{d['name']}\n"
+            f"Aadhaar:{d['aadhaar']}\n"
+            f"Address:{d['address']}\n\n"
+            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+        )
+        return str(resp)
+    
+    # ---------------- EDIT AADHAAR ----------------
+    
+    elif step=="edit_aadhaar":
+    
+        if not text_msg.isdigit() or len(text_msg)!=12:
+            msg.body("Enter valid 12 digit Aadhaar")
+    
+        else:
+            user_data[sender]["aadhaar"]=text_msg
+            user_data[sender]["step"]="confirm"
+    
+            d=user_data[sender]
+    
+            msg.body(
+                f"Updated Details\n\n"
+                f"Service:{d['service']}\n"
+                f"Name:{d['name']}\n"
+                f"Aadhaar:{d['aadhaar']}\n"
+                f"Address:{d['address']}\n\n"
+                "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+            )
+        return str(resp)
+    
+    # ---------------- EDIT ADDRESS ----------------
+    
+    elif step=="edit_address":
+
+        user_data[sender]["address"]=text_msg
+        user_data[sender]["step"]="confirm"
+    
+        d=user_data[sender]
+    
+        msg.body(
+            f"Updated Details\n\n"
+            f"Service:{d['service']}\n"
+            f"Name:{d['name']}\n"
+            f"Aadhaar:{d['aadhaar']}\n"
+            f"Address:{d['address']}\n\n"
+            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
+        )
+    
+        return str(resp)
 
     return str(resp)
 
 
 if __name__=="__main__":
 
-    port=int(os.environ.get("PORT",8080))
-    app.run(host="0.0.0.0",port=port)
+    port = int(os.environ.get("PORT",8080))
+    app.run(host="0.0.0.0", port=port)
+
