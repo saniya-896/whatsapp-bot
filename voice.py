@@ -412,7 +412,7 @@ def whatsapp_bot():
         )
 
 
-# ---------------- CONFIRM ----------------
+    # ---------------- CONFIRM ----------------
 
     elif step=="confirm":
 
@@ -424,11 +424,17 @@ def whatsapp_bot():
 
             generate_pdf(user_data[sender],app_id)
 
+            pdf_url = f"https://whatsapp-bot-mr7x.onrender.com/pdf/{app_id}.pdf"
+
             msg.body(
                 f"Application Submitted\n\n"
                 f"Application ID: {app_id}\n"
-                f"Check status: status {app_id}"
+                f"Your PDF application is attached below.\n\n"
+                f"Check status anytime:\n"
+                f"status {app_id}"
             )
+
+            msg.media(pdf_url)
 
             user_data.pop(sender)
 
@@ -456,8 +462,6 @@ def whatsapp_bot():
             msg.body("Application cancelled. Type menu to start again.")
 
             return str(resp)
-
-
 # ---------------- EDIT NAME ----------------
 
     elif step=="edit_name":
@@ -508,3 +512,4 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
