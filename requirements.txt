@@ -1,7 +1,9 @@
 flask
 twilio
-requests
-SpeechRecognition
-pydub
 reportlab
 gunicorn
+speechrecognition
+pydub
+requests
+langdetect
+indic-transliteration
