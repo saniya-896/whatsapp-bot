@@ -109,27 +109,28 @@ def save_application(data, app_id):
 
 # ---------------- UPDATE STATUS ----------------
 
-def update_status(app_id,new_status):
+def update_status(app_id, new_status):
 
     if not os.path.exists("applications.csv"):
         return
 
-    rows=[]
+    rows = []
 
-    with open("applications.csv","r") as f:
-        rows=list(csv.reader(f))
+    with open("applications.csv", "r") as f:
+        reader = csv.reader(f)
+        rows = list(reader)
 
-    for r in rows:
+    for i, r in enumerate(rows):
 
-        if len(r)<6:
+        if i == 0:  # Skip header row
             continue
 
-        if r[0]==app_id:
-            r[5]=new_status
+        if r[0].strip() == app_id.strip():
+            r[5] = new_status
 
-    with open("applications.csv","w",newline="") as f:
-        csv.writer(f).writerows(rows)
-
+    with open("applications.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
 
 # ---------------- PDF DOWNLOAD ----------------
 
@@ -230,7 +231,7 @@ def whatsapp_bot():
                 if len(row) < 6:
                     continue
 
-                if row[0] == app_id:
+                if row[0].strip() == app_id.strip():
 
                     msg.body(
                         f"Application Status\n\n"
@@ -512,4 +513,5 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
 
