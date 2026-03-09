@@ -11,7 +11,7 @@ from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-app = Flask(_name_)
+app = Flask(__name__)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
@@ -508,7 +508,8 @@ def whatsapp_bot():
     return str(resp)
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
