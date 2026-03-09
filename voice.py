@@ -42,6 +42,7 @@ def normalize_command(text):
 
     return text
 
+
 # ---------------- SHOW CONFIRM SCREEN ----------------
 
 def show_confirm(msg, data):
@@ -58,6 +59,8 @@ def show_confirm(msg, data):
         "4 Edit Address\n"
         "5 Cancel Application"
     )
+
+
 # ---------------- PDF GENERATION ----------------
 
 def generate_pdf(data, app_id):
@@ -168,43 +171,6 @@ def whatsapp_bot():
     num_media = int(request.values.get("NumMedia") or 0)
 
 
-# ---------------- VOICE SUPPORT ----------------
-
-    if num_media > 0:
-
-        media_url = request.values.get("MediaUrl0")
-
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-        )
-
-        with open("/tmp/voice.ogg","wb") as f:
-            f.write(audio_data.content)
-
-        try:
-
-            sound = AudioSegment.from_file("/tmp/voice.ogg")
-            sound.export("/tmp/voice.wav", format="wav")
-
-            recognizer = sr.Recognizer()
-
-            with sr.AudioFile("/tmp/voice.wav") as source:
-                audio = recognizer.record(source)
-
-            try:
-                spoken = recognizer.recognize_google(audio, language="ml-IN").lower()
-            except:
-                spoken = recognizer.recognize_google(audio, language="en-IN").lower()
-
-            user_text = spoken
-            text_msg = normalize_command(spoken)
-
-        except:
-            msg.body("Voice not understood")
-            return str(resp)
-
-
 # ---------------- STATUS CHECK ----------------
 
     if user_text.startswith("status"):
@@ -244,60 +210,6 @@ def whatsapp_bot():
 
         msg.body("Application not found")
         return str(resp)
-
-
-# ---------------- ADMIN ----------------
-
-    if sender in ADMIN_NUMBERS:
-
-        if text_msg == "admin":
-
-            if not os.path.exists("applications.csv"):
-                msg.body("No applications yet")
-                return str(resp)
-
-            with open("applications.csv","r") as f:
-                rows=list(csv.reader(f))
-
-            text="Recent Applications\n\n"
-
-            for r in rows[-5:]:
-
-                if len(r)<6:
-                    continue
-
-                text+=(f"ID:{r[0]}\nService:{r[1]}\nName:{r[2]}\nStatus:{r[5]}\n\n")
-
-            msg.body(text)
-            return str(resp)
-
-        if text_msg.startswith("approve"):
-
-            parts=text_msg.split()
-
-            if len(parts)!=2:
-                msg.body("Use: approve AKS-123456")
-                return str(resp)
-
-            app_id=parts[1].upper()
-            update_status(app_id,"Approved")
-
-            msg.body(f"{app_id} Approved")
-            return str(resp)
-
-        if text_msg.startswith("reject"):
-
-            parts=text_msg.split()
-
-            if len(parts)!=2:
-                msg.body("Use: reject AKS-123456")
-                return str(resp)
-
-            app_id=parts[1].upper()
-            update_status(app_id,"Rejected")
-
-            msg.body(f"{app_id} Rejected")
-            return str(resp)
 
 
 # ---------------- START ----------------
@@ -345,12 +257,14 @@ def whatsapp_bot():
             user_data[sender]["step"]="name"
             msg.body("Enter your name")
 
+        return str(resp)
+
 
 # ---------------- NAME ----------------
 
     elif step=="name":
 
-        user_data[sender]["name"]=text_msg.title()
+        user_data[sender]["name"]=body.title()
 
         if user_data[sender]["service"]=="Pension":
             user_data[sender]["step"]="age"
@@ -358,6 +272,8 @@ def whatsapp_bot():
         else:
             user_data[sender]["step"]="aadhaar"
             msg.body("Enter Aadhaar number")
+
+        return str(resp)
 
 
 # ---------------- AGE ----------------
@@ -378,6 +294,8 @@ def whatsapp_bot():
                 user_data[sender]["step"]="aadhaar"
                 msg.body("Enter Aadhaar number")
 
+        return str(resp)
+
 
 # ---------------- AADHAAR ----------------
 
@@ -391,28 +309,23 @@ def whatsapp_bot():
             user_data[sender]["step"]="address"
             msg.body("Enter address")
 
+        return str(resp)
+
 
 # ---------------- ADDRESS ----------------
 
     elif step=="address":
 
-        user_data[sender]["address"]=text_msg
-
-        d=user_data[sender]
+        user_data[sender]["address"]=body
 
         user_data[sender]["step"]="confirm"
 
-        msg.body(
-            f"Confirm Details\n\n"
-            f"Service:{d['service']}\n"
-            f"Name:{d['name']}\n"
-            f"Aadhaar:{d['aadhaar']}\n"
-            f"Address:{d['address']}\n\n"
-            "1 Confirm\n2 Edit Name\n3 Edit Aadhaar\n4 Edit Address"
-        )
+        show_confirm(msg,user_data[sender])
+
+        return str(resp)
 
 
-    # ---------------- CONFIRM ----------------
+# ---------------- CONFIRM ----------------
 
     elif step=="confirm":
 
@@ -428,8 +341,7 @@ def whatsapp_bot():
 
             msg.body(
                 f"Application Submitted\n\n"
-                f"Application ID: {app_id}\n"
-                f"Your PDF application is attached below.\n\n"
+                f"Application ID: {app_id}\n\n"
                 f"Check status anytime:\n"
                 f"status {app_id}"
             )
@@ -462,15 +374,17 @@ def whatsapp_bot():
             msg.body("Application cancelled. Type menu to start again.")
 
             return str(resp)
+
+
 # ---------------- EDIT NAME ----------------
 
     elif step=="edit_name":
 
-        user_data[sender]["name"] = text_msg.title()
+        user_data[sender]["name"]=body.title()
 
-        user_data[sender]["step"] = "confirm"
+        user_data[sender]["step"]="confirm"
 
-        show_confirm(msg, user_data[sender])
+        show_confirm(msg,user_data[sender])
 
         return str(resp)
 
@@ -479,15 +393,15 @@ def whatsapp_bot():
 
     elif step=="edit_aadhaar":
 
-        if not text_msg.isdigit() or len(text_msg) != 12:
+        if not text_msg.isdigit() or len(text_msg)!=12:
             msg.body("Enter valid 12 digit Aadhaar")
             return str(resp)
 
-        user_data[sender]["aadhaar"] = text_msg
+        user_data[sender]["aadhaar"]=text_msg
 
-        user_data[sender]["step"] = "confirm"
+        user_data[sender]["step"]="confirm"
 
-        show_confirm(msg, user_data[sender])
+        show_confirm(msg,user_data[sender])
 
         return str(resp)
 
@@ -496,14 +410,13 @@ def whatsapp_bot():
 
     elif step=="edit_address":
 
-        user_data[sender]["address"] = text_msg
+        user_data[sender]["address"]=body
 
-        user_data[sender]["step"] = "confirm"
+        user_data[sender]["step"]="confirm"
 
-        show_confirm(msg, user_data[sender])
+        show_confirm(msg,user_data[sender])
 
         return str(resp)
-
 
     return str(resp)
 
@@ -512,4 +425,3 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-
