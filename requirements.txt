@@ -1,9 +1,9 @@
-flask
+Flask
 twilio
-reportlab
-gunicorn
-speechrecognition
-pydub
 requests
-langdetect
-indic-transliteration
+SpeechRecognition
+pydub
+reportlab
+gTTS
+openai
+gunicorn
