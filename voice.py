@@ -1,4 +1,3 @@
-```python
 from flask import Flask, request, send_file
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
@@ -22,9 +21,6 @@ client = Client(ACCOUNT_SID, AUTH_TOKEN)
 AudioSegment.converter = "/usr/bin/ffmpeg"
 
 user_data = {}
-
-ADMIN_NUMBERS = ["whatsapp:+919633406610"]
-
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -79,20 +75,9 @@ def generate_pdf(data, app_id):
     elements.append(Paragraph(f"Application ID: {app_id}", styles['Normal']))
     elements.append(Paragraph(f"Service: {data['service']}", styles['Normal']))
     elements.append(Paragraph(f"Name: {data['name']}", styles['Normal']))
-
-    if "age" in data:
-        elements.append(Paragraph(f"Age: {data['age']}", styles['Normal']))
-
-    if "occupation" in data:
-        elements.append(Paragraph(f"Occupation: {data['occupation']}", styles['Normal']))
-
-    if "income" in data:
-        elements.append(Paragraph(f"Income: {data['income']}", styles['Normal']))
-
     elements.append(Paragraph(f"Aadhaar: {data['aadhaar']}", styles['Normal']))
     elements.append(Paragraph(f"Phone: {data['phone']}", styles['Normal']))
     elements.append(Paragraph(f"Address: {data['address']}", styles['Normal']))
-
     elements.append(Paragraph("Status: Submitted", styles['Normal']))
 
     pdf = SimpleDocTemplate(filename)
@@ -159,53 +144,12 @@ def whatsapp_bot():
     user_text=(body or "").strip().lower()
     text_msg=normalize_command(user_text)
 
-    num_media = int(request.values.get("NumMedia") or 0)
-
-
-# ---------------- VOICE SUPPORT ----------------
-
-    if num_media > 0:
-
-        media_url = request.values.get("MediaUrl0")
-
-        audio_data = requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID, AUTH_TOKEN)
-        )
-
-        with open("/tmp/voice.ogg","wb") as f:
-            f.write(audio_data.content)
-
-        try:
-
-            sound = AudioSegment.from_file("/tmp/voice.ogg")
-            sound.export("/tmp/voice.wav", format="wav")
-
-            recognizer = sr.Recognizer()
-
-            with sr.AudioFile("/tmp/voice.wav") as source:
-                audio = recognizer.record(source)
-
-            try:
-                spoken = recognizer.recognize_google(audio, language="ml-IN").lower()
-            except:
-                spoken = recognizer.recognize_google(audio, language="en-IN").lower()
-
-            user_text = spoken
-            text_msg = normalize_command(spoken)
-
-        except:
-            msg.body("Voice not understood")
-            return str(resp)
-
-
 # ---------------- CANCEL ----------------
 
     if text_msg in ["cancel","6"]:
         user_data.pop(sender,None)
         msg.body("Application cancelled. Type menu to start again.")
         return str(resp)
-
 
 # ---------------- START ----------------
 
@@ -222,7 +166,6 @@ def whatsapp_bot():
 
         return str(resp)
 
-
 # ---------------- USER INIT ----------------
 
     if sender not in user_data:
@@ -232,7 +175,6 @@ def whatsapp_bot():
         return str(resp)
 
     step=user_data[sender]["step"]
-
 
 # ---------------- MENU ----------------
 
@@ -256,7 +198,6 @@ def whatsapp_bot():
             msg.body("Enter your name")
             return str(resp)
 
-
 # ---------------- NAME ----------------
 
     elif step=="name":
@@ -266,7 +207,6 @@ def whatsapp_bot():
 
         msg.body("Enter Aadhaar number")
         return str(resp)
-
 
 # ---------------- AADHAAR ----------------
 
@@ -282,7 +222,6 @@ def whatsapp_bot():
         msg.body("Enter phone number")
         return str(resp)
 
-
 # ---------------- PHONE ----------------
 
     elif step=="phone":
@@ -297,7 +236,6 @@ def whatsapp_bot():
         msg.body("Enter address")
         return str(resp)
 
-
 # ---------------- ADDRESS ----------------
 
     elif step=="address":
@@ -307,7 +245,6 @@ def whatsapp_bot():
 
         show_confirm(msg,user_data[sender])
         return str(resp)
-
 
 # ---------------- CONFIRM ----------------
 
@@ -345,14 +282,13 @@ def whatsapp_bot():
 
         elif text_msg=="4":
             user_data[sender]["step"]="edit_phone"
-            msg.body("Enter correct phone number")
+            msg.body("Enter correct phone")
             return str(resp)
 
         elif text_msg=="5":
             user_data[sender]["step"]="edit_address"
             msg.body("Enter correct address")
             return str(resp)
-
 
 # ---------------- EDIT NAME ----------------
 
@@ -364,7 +300,6 @@ def whatsapp_bot():
         show_confirm(msg,user_data[sender])
         return str(resp)
 
-
 # ---------------- EDIT AADHAAR ----------------
 
     elif step=="edit_aadhaar":
@@ -374,7 +309,6 @@ def whatsapp_bot():
 
         show_confirm(msg,user_data[sender])
         return str(resp)
-
 
 # ---------------- EDIT PHONE ----------------
 
@@ -386,7 +320,6 @@ def whatsapp_bot():
         show_confirm(msg,user_data[sender])
         return str(resp)
 
-
 # ---------------- EDIT ADDRESS ----------------
 
     elif step=="edit_address":
@@ -397,7 +330,6 @@ def whatsapp_bot():
         show_confirm(msg,user_data[sender])
         return str(resp)
 
-
     return str(resp)
 
 
@@ -405,4 +337,3 @@ if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
     app.run(host="0.0.0.0",port=port)
-```
