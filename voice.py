@@ -1,4 +1,3 @@
-```python
 from flask import Flask, request, send_file
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
@@ -27,14 +26,12 @@ ai_client = OpenAI(api_key=OPENAI_KEY)
 
 AudioSegment.converter = os.getenv("FFMPEG_PATH", "/usr/bin/ffmpeg")
 
-# CHANGE THIS TO YOUR RENDER DOMAIN
 BASE_URL = "https://whatsapp-bot-mr7x.onrender.com"
 
 user_data = {}
 
 ADMIN_NUMBERS = ["whatsapp:+919633406610"]
 
-# ---------------- NORMALIZE COMMAND ----------------
 
 def normalize_command(text):
 
@@ -51,7 +48,6 @@ def normalize_command(text):
 
     return text
 
-# ---------------- AI CHAT ----------------
 
 def ai_chat(question):
 
@@ -71,13 +67,9 @@ User question: {question}
 
         return response.choices[0].message.content
 
-    except Exception as e:
-
-        print(e)
-
+    except:
         return "ക്ഷമിക്കണം, ഇപ്പോൾ സർവീസ് ലഭ്യമല്ല."
 
-# ---------------- VOICE GENERATION ----------------
 
 def generate_voice(text):
 
@@ -89,7 +81,6 @@ def generate_voice(text):
 
     return filename
 
-# ---------------- CONFIRM SCREEN ----------------
 
 def show_confirm(msg,data):
 
@@ -106,7 +97,6 @@ def show_confirm(msg,data):
         "5 Cancel Application"
     )
 
-# ---------------- PDF GENERATION ----------------
 
 def generate_pdf(data,app_id):
 
@@ -149,7 +139,6 @@ def generate_pdf(data,app_id):
 
     return filename
 
-# ---------------- SAVE CSV ----------------
 
 def save_application(data,app_id):
 
@@ -171,7 +160,6 @@ def save_application(data,app_id):
             "Submitted"
         ])
 
-# ---------------- PDF DOWNLOAD ----------------
 
 @app.route("/pdf/<filename>")
 def get_pdf(filename):
@@ -183,7 +171,6 @@ def get_pdf(filename):
 
     return "PDF not found",404
 
-# ---------------- VOICE FILE ----------------
 
 @app.route("/voice/<filename>")
 def get_voice(filename):
@@ -195,13 +182,11 @@ def get_voice(filename):
 
     return "File not found",404
 
-# ---------------- HOME ----------------
 
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
 
-# ---------------- WHATSAPP BOT ----------------
 
 @app.route("/whatsapp",methods=["POST"])
 def whatsapp_bot():
@@ -214,10 +199,6 @@ def whatsapp_bot():
 
     user_text=(body or "").strip().lower()
     text_msg=normalize_command(user_text)
-
-    num_media=int(request.values.get("NumMedia",0))
-
-# ---------------- AI CHAT ----------------
 
     if user_text.startswith("ai"):
 
@@ -233,7 +214,6 @@ def whatsapp_bot():
 
         return str(resp)
 
-# ---------------- START ----------------
 
     if text_msg in ["hi","hello","menu"]:
 
@@ -248,7 +228,6 @@ def whatsapp_bot():
 
         return str(resp)
 
-# ---------------- USER INIT ----------------
 
     if sender not in user_data:
 
@@ -260,7 +239,6 @@ def whatsapp_bot():
 
     step=user_data[sender]["step"]
 
-# ---------------- MENU ----------------
 
     if step=="menu":
 
@@ -268,30 +246,32 @@ def whatsapp_bot():
 
             user_data[sender]["service"]="Pension"
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
 
         elif text_msg=="2":
 
             user_data[sender]["service"]="Income Certificate"
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
 
         elif text_msg=="3":
 
             user_data[sender]["service"]="Ration Card"
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
 
-# ---------------- NAME ----------------
 
     elif step=="name":
 
         user_data[sender]["name"]=text_msg.title()
+
         user_data[sender]["step"]="aadhaar"
 
         msg.body("Enter Aadhaar number")
 
-# ---------------- AADHAAR ----------------
 
     elif step=="aadhaar":
 
@@ -306,16 +286,15 @@ def whatsapp_bot():
 
             msg.body("Enter address")
 
-# ---------------- ADDRESS ----------------
 
     elif step=="address":
 
         user_data[sender]["address"]=text_msg
+
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
 
-# ---------------- CONFIRM ----------------
 
     elif step=="confirm":
 
@@ -343,9 +322,9 @@ def whatsapp_bot():
 
     return str(resp)
 
+
 if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
 
     app.run(host="0.0.0.0",port=port)
-```
