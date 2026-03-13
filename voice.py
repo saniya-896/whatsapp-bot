@@ -8,19 +8,29 @@ import os
 import random
 import csv
 from requests.auth import HTTPBasicAuth
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from gtts import gTTS
+import openai
 
 app = Flask(__name__)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
 
 client = Client(ACCOUNT_SID, AUTH_TOKEN)
 
-AudioSegment.converter = "/usr/bin/ffmpeg"
+openai.api_key = OPENAI_KEY
+
+AudioSegment.converter = os.getenv("FFMPEG_PATH", "/usr/bin/ffmpeg")
 
 user_data = {}
+
+ADMIN_NUMBERS = ["whatsapp:+919633406610"]
+
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -28,7 +38,7 @@ def normalize_command(text):
 
     text = text.lower()
 
-    if any(w in text for w in ["pension","പെൻഷൻ"]):
+    if any(w in text for w in ["pension","pension venam","പെൻഷൻ"]):
         return "1"
 
     if any(w in text for w in ["income","income certificate","ഇൻകം"]):
@@ -40,6 +50,45 @@ def normalize_command(text):
     return text
 
 
+# ---------------- AI MALAYALAM CHAT ----------------
+
+def ai_chat(question):
+
+    prompt = f"""
+You are an Akshaya digital assistant helping Kerala citizens.
+Reply clearly in Malayalam.
+
+User question: {question}
+"""
+
+    try:
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role":"user","content":prompt}],
+            max_tokens=200
+        )
+
+        return response["choices"][0]["message"]["content"]
+
+    except:
+
+        return "ക്ഷമിക്കണം, ഇപ്പോൾ സർവീസ് ലഭ്യമല്ല."
+
+
+# ---------------- VOICE GENERATION ----------------
+
+def generate_voice(text):
+
+    filename="/tmp/reply.mp3"
+
+    tts=gTTS(text=text,lang="ml")
+
+    tts.save(filename)
+
+    return filename
+
+
 # ---------------- CONFIRM SCREEN ----------------
 
 def show_confirm(msg,data):
@@ -49,38 +98,57 @@ def show_confirm(msg,data):
         f"Service: {data['service']}\n"
         f"Name: {data['name']}\n"
         f"Aadhaar: {data['aadhaar']}\n"
-        f"Phone: {data['phone']}\n"
         f"Address: {data['address']}\n\n"
         "1 Confirm\n"
         "2 Edit Name\n"
         "3 Edit Aadhaar\n"
-        "4 Edit Phone\n"
-        "5 Edit Address\n"
-        "6 Cancel"
+        "4 Edit Address\n"
+        "5 Cancel Application"
     )
 
 
 # ---------------- PDF GENERATION ----------------
 
-def generate_pdf(data, app_id):
+def generate_pdf(data,app_id):
 
-    filename = f"/tmp/{app_id}.pdf"
-    styles = getSampleStyleSheet()
+    filename=f"/tmp/{app_id}.pdf"
+
+    styles=getSampleStyleSheet()
 
     elements=[]
 
-    elements.append(Paragraph("E-Akshaya Digital Service Application", styles['Title']))
+    elements.append(Paragraph("Government of Kerala",styles['Title']))
+    elements.append(Paragraph("E-Akshaya Digital Service Center",styles['Heading2']))
+
     elements.append(Spacer(1,20))
 
-    elements.append(Paragraph(f"Application ID: {app_id}", styles['Normal']))
-    elements.append(Paragraph(f"Service: {data['service']}", styles['Normal']))
-    elements.append(Paragraph(f"Name: {data['name']}", styles['Normal']))
-    elements.append(Paragraph(f"Aadhaar: {data['aadhaar']}", styles['Normal']))
-    elements.append(Paragraph(f"Phone: {data['phone']}", styles['Normal']))
-    elements.append(Paragraph(f"Address: {data['address']}", styles['Normal']))
-    elements.append(Paragraph("Status: Submitted", styles['Normal']))
+    elements.append(Paragraph(f"<b>Application ID:</b> {app_id}",styles['Normal']))
 
-    pdf = SimpleDocTemplate(filename)
+    elements.append(Spacer(1,20))
+
+    table_data=[
+        ["Service",data["service"]],
+        ["Name",data["name"]],
+        ["Aadhaar",data["aadhaar"]],
+        ["Address",data["address"]],
+        ["Status","Submitted"]
+    ]
+
+    table=Table(table_data,colWidths=[200,300])
+
+    table.setStyle(TableStyle([
+        ("GRID",(0,0),(-1,-1),1,colors.black),
+        ("BACKGROUND",(0,0),(0,-1),colors.lightgrey)
+    ]))
+
+    elements.append(table)
+
+    elements.append(Spacer(1,40))
+
+    elements.append(Paragraph("Digitally generated application",styles['Italic']))
+
+    pdf=SimpleDocTemplate(filename,pagesize=A4)
+
     pdf.build(elements)
 
     return filename
@@ -90,24 +158,47 @@ def generate_pdf(data, app_id):
 
 def save_application(data,app_id):
 
-    file_exists = os.path.exists("applications.csv")
+    file_exists=os.path.exists("applications.csv")
 
     with open("applications.csv","a",newline="") as f:
 
         writer=csv.writer(f)
 
         if not file_exists:
-            writer.writerow(["ID","Service","Name","Aadhaar","Phone","Address","Status"])
+            writer.writerow(["ID","Service","Name","Aadhaar","Address","Status"])
 
         writer.writerow([
             app_id,
             data["service"],
             data["name"],
             data["aadhaar"],
-            data["phone"],
             data["address"],
             "Submitted"
         ])
+
+
+# ---------------- UPDATE STATUS ----------------
+
+def update_status(app_id,new_status):
+
+    if not os.path.exists("applications.csv"):
+        return
+
+    rows=[]
+
+    with open("applications.csv","r") as f:
+        rows=list(csv.reader(f))
+
+    for r in rows:
+
+        if len(r)<6:
+            continue
+
+        if r[0]==app_id:
+            r[5]=new_status
+
+    with open("applications.csv","w",newline="") as f:
+        csv.writer(f).writerows(rows)
 
 
 # ---------------- PDF DOWNLOAD ----------------
@@ -115,12 +206,25 @@ def save_application(data,app_id):
 @app.route("/pdf/<filename>")
 def get_pdf(filename):
 
-    path=f"/tmp/{filename}"
+    file_path=f"/tmp/{filename}"
 
-    if os.path.exists(path):
-        return send_file(path,as_attachment=True)
+    if os.path.exists(file_path):
+        return send_file(file_path,as_attachment=True)
 
     return "PDF not found",404
+
+
+# ---------------- VOICE FILE ----------------
+
+@app.route("/voice/<filename>")
+def get_voice(filename):
+
+    file_path=f"/tmp/{filename}"
+
+    if os.path.exists(file_path):
+        return send_file(file_path,mimetype="audio/mpeg")
+
+    return "File not found",404
 
 
 # ---------------- HOME ----------------
@@ -142,14 +246,111 @@ def whatsapp_bot():
     body=request.values.get("Body")
 
     user_text=(body or "").strip().lower()
+
     text_msg=normalize_command(user_text)
 
-# ---------------- CANCEL ----------------
+    num_media=int(request.values.get("NumMedia",0))
 
-    if text_msg in ["cancel","6"]:
-        user_data.pop(sender,None)
-        msg.body("Application cancelled. Type menu to start again.")
+
+# ---------------- VOICE INPUT ----------------
+
+    if num_media>0:
+
+        media_url=request.values.get("MediaUrl0")
+
+        audio_data=requests.get(
+            media_url,
+            auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN)
+        )
+
+        with open("/tmp/voice.ogg","wb") as f:
+            f.write(audio_data.content)
+
+        try:
+
+            sound=AudioSegment.from_file("/tmp/voice.ogg")
+            sound.export("/tmp/voice.wav",format="wav")
+
+            recognizer=sr.Recognizer()
+
+            with sr.AudioFile("/tmp/voice.wav") as source:
+                audio=recognizer.record(source)
+
+            try:
+                spoken=recognizer.recognize_google(audio,language="ml-IN").lower()
+            except:
+                spoken=recognizer.recognize_google(audio,language="en-IN").lower()
+
+            user_text=spoken
+            text_msg=normalize_command(spoken)
+
+        except:
+
+            msg.body("Voice not understood")
+            return str(resp)
+
+
+# ---------------- AI CHAT ----------------
+
+    if user_text.startswith("ai"):
+
+        question=user_text.replace("ai","").strip()
+
+        if not question:
+            msg.body("Ask question like:\nai pension എങ്ങനെ apply ചെയ്യാം?")
+            return str(resp)
+
+        answer=ai_chat(question)
+
+        generate_voice(answer)
+
+        msg.body(answer)
+
+        msg.media("https://your-domain.com/voice/reply.mp3")
+
         return str(resp)
+
+
+# ---------------- STATUS ----------------
+
+    if user_text.startswith("status"):
+
+        parts=user_text.split()
+
+        if len(parts)!=2:
+            msg.body("Use: status AKS-123456")
+            return str(resp)
+
+        app_id=parts[1].upper()
+
+        if not os.path.exists("applications.csv"):
+            msg.body("Database empty")
+            return str(resp)
+
+        with open("applications.csv","r") as f:
+
+            reader=csv.reader(f)
+
+            for row in reader:
+
+                if len(row)<6:
+                    continue
+
+                if row[0]==app_id:
+
+                    msg.body(
+                        f"Application Status\n\n"
+                        f"ID: {row[0]}\n"
+                        f"Service: {row[1]}\n"
+                        f"Name: {row[2]}\n"
+                        f"Status: {row[5]}"
+                    )
+
+                    return str(resp)
+
+        msg.body("Application not found")
+        return str(resp)
+
 
 # ---------------- START ----------------
 
@@ -166,85 +367,89 @@ def whatsapp_bot():
 
         return str(resp)
 
+
 # ---------------- USER INIT ----------------
 
     if sender not in user_data:
 
         user_data[sender]={"step":"menu"}
+
         msg.body("Type menu to start")
+
         return str(resp)
 
     step=user_data[sender]["step"]
+
 
 # ---------------- MENU ----------------
 
     if step=="menu":
 
         if text_msg=="1":
+
             user_data[sender]["service"]="Pension"
+
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
-            return str(resp)
+
 
         elif text_msg=="2":
+
             user_data[sender]["service"]="Income Certificate"
+
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
-            return str(resp)
+
 
         elif text_msg=="3":
+
             user_data[sender]["service"]="Ration Card"
+
             user_data[sender]["step"]="name"
+
             msg.body("Enter your name")
-            return str(resp)
+
 
 # ---------------- NAME ----------------
 
     elif step=="name":
 
         user_data[sender]["name"]=text_msg.title()
+
         user_data[sender]["step"]="aadhaar"
 
         msg.body("Enter Aadhaar number")
-        return str(resp)
+
 
 # ---------------- AADHAAR ----------------
 
     elif step=="aadhaar":
 
         if not text_msg.isdigit() or len(text_msg)!=12:
+
             msg.body("Enter valid 12 digit Aadhaar")
-            return str(resp)
 
-        user_data[sender]["aadhaar"]=text_msg
-        user_data[sender]["step"]="phone"
+        else:
 
-        msg.body("Enter phone number")
-        return str(resp)
+            user_data[sender]["aadhaar"]=text_msg
 
-# ---------------- PHONE ----------------
+            user_data[sender]["step"]="address"
 
-    elif step=="phone":
+            msg.body("Enter address")
 
-        if not text_msg.isdigit() or len(text_msg)!=10:
-            msg.body("Enter valid 10 digit phone")
-            return str(resp)
-
-        user_data[sender]["phone"]=text_msg
-        user_data[sender]["step"]="address"
-
-        msg.body("Enter address")
-        return str(resp)
 
 # ---------------- ADDRESS ----------------
 
     elif step=="address":
 
         user_data[sender]["address"]=text_msg
+
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
-        return str(resp)
+
 
 # ---------------- CONFIRM ----------------
 
@@ -255,9 +460,10 @@ def whatsapp_bot():
             app_id="AKS-"+str(random.randint(100000,999999))
 
             save_application(user_data[sender],app_id)
+
             generate_pdf(user_data[sender],app_id)
 
-            pdf_url=f"https://whatsapp-bot-mr7x.onrender.com/pdf/{app_id}.pdf"
+            pdf_url=f"https://your-domain.com/pdf/{app_id}.pdf"
 
             msg.body(
                 f"Application Submitted\n\n"
@@ -268,66 +474,88 @@ def whatsapp_bot():
             msg.media(pdf_url)
 
             user_data.pop(sender)
+
             return str(resp)
+
 
         elif text_msg=="2":
+
             user_data[sender]["step"]="edit_name"
+
             msg.body("Enter correct name")
+
             return str(resp)
+
 
         elif text_msg=="3":
+
             user_data[sender]["step"]="edit_aadhaar"
+
             msg.body("Enter correct Aadhaar")
+
             return str(resp)
+
 
         elif text_msg=="4":
-            user_data[sender]["step"]="edit_phone"
-            msg.body("Enter correct phone")
+
+            user_data[sender]["step"]="edit_address"
+
+            msg.body("Enter correct address")
+
             return str(resp)
 
+
         elif text_msg=="5":
-            user_data[sender]["step"]="edit_address"
-            msg.body("Enter correct address")
+
+            user_data.pop(sender)
+
+            msg.body("Application cancelled")
+
             return str(resp)
+
 
 # ---------------- EDIT NAME ----------------
 
     elif step=="edit_name":
 
         user_data[sender]["name"]=text_msg.title()
+
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
+
         return str(resp)
+
 
 # ---------------- EDIT AADHAAR ----------------
 
     elif step=="edit_aadhaar":
 
+        if not text_msg.isdigit() or len(text_msg)!=12:
+
+            msg.body("Enter valid Aadhaar")
+
+            return str(resp)
+
         user_data[sender]["aadhaar"]=text_msg
+
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
+
         return str(resp)
 
-# ---------------- EDIT PHONE ----------------
-
-    elif step=="edit_phone":
-
-        user_data[sender]["phone"]=text_msg
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-        return str(resp)
 
 # ---------------- EDIT ADDRESS ----------------
 
     elif step=="edit_address":
 
         user_data[sender]["address"]=text_msg
+
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
+
         return str(resp)
 
     return str(resp)
@@ -336,4 +564,5 @@ def whatsapp_bot():
 if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
+
     app.run(host="0.0.0.0",port=port)
