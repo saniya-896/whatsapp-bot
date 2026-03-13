@@ -35,11 +35,18 @@ def create_voice(text, sender):
     return filename
 
 
-def send_voice(msg, text, sender):
+def send_voice(resp, text, sender):
+
     voice_file = create_voice(text, sender)
+
     audio_url = f"https://whatsapp-bot-mr7x.onrender.com/audio/{os.path.basename(voice_file)}"
-    msg.body(text)
-    msg.media(audio_url)
+
+    # First message → text
+    resp.message(text)
+
+    # Second message → voice
+    voice_msg = resp.message()
+    voice_msg.media(audio_url)
 
 
 @app.route("/audio/<filename>")
@@ -331,7 +338,7 @@ def whatsapp_bot():
 
         user_data[sender]={"step":"menu"}
 
-        send_voice(msg,"ഇ അക്ഷയ ഡിജിറ്റൽ സർവീസിലേക്ക് സ്വാഗതം. ഒന്ന് പെൻഷൻ. രണ്ട് ഇൻകം സർട്ടിഫിക്കറ്റ്. മൂന്ന് റേഷൻ കാർഡ്.",sender)
+        send_voice(resp,"ഇ അക്ഷയ ഡിജിറ്റൽ സർവീസിലേക്ക് സ്വാഗതം. ഒന്ന് പെൻഷൻ. രണ്ട് ഇൻകം സർട്ടിഫിക്കറ്റ്. മൂന്ന് റേഷൻ കാർഡ്.",sender)
 
         return str(resp)
 
@@ -353,17 +360,17 @@ def whatsapp_bot():
         if text_msg=="1":
             user_data[sender]["service"]="Pension"
             user_data[sender]["step"]="name"
-            send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
+            send_voice(resp,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
         elif text_msg=="2":
             user_data[sender]["service"]="Income Certificate"
             user_data[sender]["step"]="name"
-            send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
+            send_voice(resp,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
         elif text_msg=="3":
             user_data[sender]["service"]="Ration Card"
             user_data[sender]["step"]="name"
-            send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
+            send_voice(resp,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
 
 # ---------------- NAME ----------------
@@ -374,10 +381,10 @@ def whatsapp_bot():
 
         if user_data[sender]["service"]=="Pension":
             user_data[sender]["step"]="age"
-            send_voice(msg,"നിങ്ങളുടെ വയസ് നൽകുക",sender)
+            send_voice(resp, "നിങ്ങളുടെ വയസ് നൽകുക", sender)
         else:
             user_data[sender]["step"]="aadhaar"
-            send_voice(msg,"ആധാർ നമ്പർ നൽകുക",sender)
+            send_voice(resp, "ആധാർ നമ്പർ നൽകുക", sender)
 
 
 # ---------------- AGE ----------------
@@ -396,7 +403,7 @@ def whatsapp_bot():
             else:
                 user_data[sender]["age"]=age
                 user_data[sender]["step"]="aadhaar"
-                send_voice(msg,"ആധാർ നമ്പർ നൽകുക",sender)
+                send_voice(resp,"ആധാർ നമ്പർ നൽകുക",sender)
 
 
 # ---------------- AADHAAR ----------------
@@ -409,7 +416,7 @@ def whatsapp_bot():
         else:
             user_data[sender]["aadhaar"]=user_text
             user_data[sender]["step"]="address"
-            send_voice(msg,"നിങ്ങളുടെ വിലാസം നൽകുക",sender)
+            send_voice(resp,"നിങ്ങളുടെ വിലാസം നൽകുക",sender)
 
 
 # ---------------- ADDRESS ----------------
@@ -419,6 +426,7 @@ def whatsapp_bot():
         user_data[sender]["address"]=user_text
         user_data[sender]["step"]="confirm"
         show_confirm(msg,user_data[sender])
+        send_voice(resp, "ദയവായി വിവരങ്ങൾ പരിശോധിക്കുക. ഒന്ന് സ്ഥിരീകരിക്കുക. രണ്ട് പേര് തിരുത്തുക.", sender)
 
 
 # ---------------- CONFIRM ----------------
