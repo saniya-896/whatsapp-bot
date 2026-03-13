@@ -29,42 +29,30 @@ ADMIN_NUMBERS = ["whatsapp:+919633406610"]
 # ---------------- VOICE ----------------
 
 def create_voice(text, sender):
-
     filename = f"/tmp/{sender.replace(':','')}.mp3"
-
     tts = gTTS(text=text, lang="ml")
-
     tts.save(filename)
-
     return filename
 
 
 def send_voice(msg, text, sender):
-
     voice_file = create_voice(text, sender)
-
     audio_url = f"https://whatsapp-bot-mr7x.onrender.com/audio/{os.path.basename(voice_file)}"
-
     msg.body(text)
-
     msg.media(audio_url)
 
 
 @app.route("/audio/<filename>")
 def get_audio(filename):
-
     path = f"/tmp/{filename}"
-
     if os.path.exists(path):
         return send_file(path, mimetype="audio/mpeg")
-
     return "Audio not found",404
 
 
 # ---------------- NORMALIZE ----------------
 
 def normalize_command(text):
-
     text = text.lower()
 
     if any(w in text for w in ["pension","പെൻഷൻ"]):
@@ -83,13 +71,9 @@ def normalize_command(text):
 
 def show_confirm(msg, data):
 
-    text = (
-        f"Confirm Details\n\n"
-        f"Service: {data['service']}\n"
-        f"Name: {data['name']}\n"
-    )
+    text = f"Confirm Details\n\nService: {data['service']}\nName: {data['name']}\n"
 
-    if data['service'] == "Pension":
+    if data['service']=="Pension":
         text += f"Age: {data['age']}\n"
 
     text += (
@@ -131,7 +115,6 @@ def generate_pdf(data, app_id):
     elements.append(Paragraph("Status: Submitted", styles['Normal']))
 
     pdf = SimpleDocTemplate(filename)
-
     pdf.build(elements)
 
     return filename
@@ -174,10 +157,8 @@ def update_status(app_id,new_status):
         rows=list(csv.reader(f))
 
     for r in rows:
-
         if len(r)<7:
             continue
-
         if r[0]==app_id:
             r[6]=new_status
 
@@ -211,15 +192,12 @@ def home():
 def whatsapp_bot():
 
     resp=MessagingResponse()
-
     msg=resp.message()
 
     sender=request.values.get("From")
-
     body=request.values.get("Body")
 
     user_text=(body or "").strip()
-
     text_msg=normalize_command(user_text)
 
     num_media=int(request.values.get("NumMedia") or 0)
@@ -233,7 +211,7 @@ def whatsapp_bot():
 
         audio_data=requests.get(media_url,auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN))
 
-        voice_file=f"/tmp/{sender.replace(':','')}.ogg"
+        voice_file=f"/tmp/{sender.replace(':','')}_{random.randint(1000,9999)}.ogg"
 
         with open(voice_file,"wb") as f:
             f.write(audio_data.content)
@@ -249,19 +227,15 @@ def whatsapp_bot():
             recognizer=sr.Recognizer()
 
             with sr.AudioFile(wav_file) as source:
-
                 audio=recognizer.record(source)
 
             spoken=recognizer.recognize_google(audio,language="ml-IN")
 
             user_text=spoken
-
             text_msg=normalize_command(spoken)
 
         except:
-
             msg.body("Voice not understood")
-
             return str(resp)
 
 
@@ -272,48 +246,49 @@ def whatsapp_bot():
         if text_msg=="admin":
 
             if not os.path.exists("applications.csv"):
-
                 msg.body("No applications yet")
-
                 return str(resp)
 
             with open("applications.csv","r") as f:
-
                 rows=list(csv.reader(f))
 
             text="Recent Applications\n\n"
 
             for r in rows[-5:]:
-
                 if len(r)<7:
                     continue
 
                 text+=f"ID:{r[0]}\nService:{r[1]}\nName:{r[2]}\nStatus:{r[6]}\n\n"
 
             msg.body(text)
-
             return str(resp)
 
 
         if text_msg.startswith("approve"):
 
-            app_id=text_msg.split()[1].upper()
+            parts=text_msg.split()
 
-            update_status(app_id,"Approved")
+            if len(parts)!=2:
+                msg.body("Use: approve AKS-123456")
+                return str(resp)
 
-            msg.body(f"{app_id} Approved")
+            update_status(parts[1].upper(),"Approved")
 
+            msg.body(f"{parts[1].upper()} Approved")
             return str(resp)
 
 
         if text_msg.startswith("reject"):
 
-            app_id=text_msg.split()[1].upper()
+            parts=text_msg.split()
 
-            update_status(app_id,"Rejected")
+            if len(parts)!=2:
+                msg.body("Use: reject AKS-123456")
+                return str(resp)
 
-            msg.body(f"{app_id} Rejected")
+            update_status(parts[1].upper(),"Rejected")
 
+            msg.body(f"{parts[1].upper()} Rejected")
             return str(resp)
 
 
@@ -324,24 +299,19 @@ def whatsapp_bot():
         parts=user_text.split()
 
         if len(parts)!=2:
-
             msg.body("Use: status AKS-123456")
-
             return str(resp)
 
         app_id=parts[1].upper()
 
         with open("applications.csv","r") as f:
-
             reader=csv.reader(f)
 
             for row in reader:
-
                 if len(row)<7:
                     continue
 
                 if row[0]==app_id:
-
                     msg.body(
                         f"Application Status\n\n"
                         f"ID:{row[0]}\n"
@@ -349,11 +319,9 @@ def whatsapp_bot():
                         f"Name:{row[2]}\n"
                         f"Status:{row[6]}"
                     )
-
                     return str(resp)
 
         msg.body("Application not found")
-
         return str(resp)
 
 
@@ -363,11 +331,7 @@ def whatsapp_bot():
 
         user_data[sender]={"step":"menu"}
 
-        send_voice(
-            msg,
-            "ഇ അക്ഷയ ഡിജിറ്റൽ സർവീസിലേക്ക് സ്വാഗതം. ഒന്ന് പെൻഷൻ. രണ്ട് ഇൻകം സർട്ടിഫിക്കറ്റ്. മൂന്ന് റേഷൻ കാർഡ്.",
-            sender
-        )
+        send_voice(msg,"ഇ അക്ഷയ ഡിജിറ്റൽ സർവീസിലേക്ക് സ്വാഗതം. ഒന്ന് പെൻഷൻ. രണ്ട് ഇൻകം സർട്ടിഫിക്കറ്റ്. മൂന്ന് റേഷൻ കാർഡ്.",sender)
 
         return str(resp)
 
@@ -375,11 +339,8 @@ def whatsapp_bot():
 # ---------------- USER INIT ----------------
 
     if sender not in user_data:
-
         user_data[sender]={"step":"menu"}
-
         msg.body("Type menu to start")
-
         return str(resp)
 
     step=user_data[sender]["step"]
@@ -390,27 +351,18 @@ def whatsapp_bot():
     if step=="menu":
 
         if text_msg=="1":
-
             user_data[sender]["service"]="Pension"
-
             user_data[sender]["step"]="name"
-
             send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
         elif text_msg=="2":
-
             user_data[sender]["service"]="Income Certificate"
-
             user_data[sender]["step"]="name"
-
             send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
         elif text_msg=="3":
-
             user_data[sender]["service"]="Ration Card"
-
             user_data[sender]["step"]="name"
-
             send_voice(msg,"നിങ്ങളുടെ പേര് നൽകുക",sender)
 
 
@@ -421,15 +373,10 @@ def whatsapp_bot():
         user_data[sender]["name"]=user_text.title()
 
         if user_data[sender]["service"]=="Pension":
-
             user_data[sender]["step"]="age"
-
             send_voice(msg,"നിങ്ങളുടെ വയസ് നൽകുക",sender)
-
         else:
-
             user_data[sender]["step"]="aadhaar"
-
             send_voice(msg,"ആധാർ നമ്പർ നൽകുക",sender)
 
 
@@ -438,7 +385,6 @@ def whatsapp_bot():
     elif step=="age":
 
         if not user_text.isdigit():
-
             msg.body("Enter valid age")
 
         else:
@@ -446,15 +392,10 @@ def whatsapp_bot():
             age=int(user_text)
 
             if age<50:
-
                 msg.body("Pension only for age 50+")
-
             else:
-
                 user_data[sender]["age"]=age
-
                 user_data[sender]["step"]="aadhaar"
-
                 send_voice(msg,"ആധാർ നമ്പർ നൽകുക",sender)
 
 
@@ -463,15 +404,11 @@ def whatsapp_bot():
     elif step=="aadhaar":
 
         if not user_text.isdigit() or len(user_text)!=12:
-
             msg.body("Enter valid Aadhaar")
 
         else:
-
             user_data[sender]["aadhaar"]=user_text
-
             user_data[sender]["step"]="address"
-
             send_voice(msg,"നിങ്ങളുടെ വിലാസം നൽകുക",sender)
 
 
@@ -480,9 +417,7 @@ def whatsapp_bot():
     elif step=="address":
 
         user_data[sender]["address"]=user_text
-
         user_data[sender]["step"]="confirm"
-
         show_confirm(msg,user_data[sender])
 
 
@@ -501,9 +436,7 @@ def whatsapp_bot():
             pdf_url=f"https://whatsapp-bot-mr7x.onrender.com/pdf/{app_id}.pdf"
 
             msg.body(
-                f"Application Submitted\n\n"
-                f"Application ID: {app_id}\n"
-                f"Check status:\nstatus {app_id}"
+                f"Application Submitted\n\nApplication ID: {app_id}\nCheck status:\nstatus {app_id}"
             )
 
             msg.media(pdf_url)
@@ -512,37 +445,23 @@ def whatsapp_bot():
 
 
         elif text_msg=="2":
-
             user_data[sender]["step"]="edit_name"
-
             msg.body("Enter correct name")
 
-
         elif text_msg=="3":
-
             user_data[sender]["step"]="edit_age"
-
             msg.body("Enter correct age")
 
-
         elif text_msg=="4":
-
             user_data[sender]["step"]="edit_aadhaar"
-
             msg.body("Enter correct Aadhaar")
 
-
         elif text_msg=="5":
-
             user_data[sender]["step"]="edit_address"
-
             msg.body("Enter correct address")
 
-
-        elif text_msg=="6":
-
+        elif text_msg in ["6","cancel"]:
             user_data.pop(sender)
-
             msg.body("Application cancelled")
 
 
@@ -551,36 +470,32 @@ def whatsapp_bot():
     elif step=="edit_name":
 
         user_data[sender]["name"]=user_text.title()
-
         user_data[sender]["step"]="confirm"
-
         show_confirm(msg,user_data[sender])
 
 
     elif step=="edit_age":
 
+        if not user_text.isdigit():
+            msg.body("Enter valid age")
+            return str(resp)
+
         user_data[sender]["age"]=int(user_text)
-
         user_data[sender]["step"]="confirm"
-
         show_confirm(msg,user_data[sender])
 
 
     elif step=="edit_aadhaar":
 
         user_data[sender]["aadhaar"]=user_text
-
         user_data[sender]["step"]="confirm"
-
         show_confirm(msg,user_data[sender])
 
 
     elif step=="edit_address":
 
         user_data[sender]["address"]=user_text
-
         user_data[sender]["step"]="confirm"
-
         show_confirm(msg,user_data[sender])
 
 
@@ -592,5 +507,3 @@ if __name__=="__main__":
     port=int(os.environ.get("PORT",8080))
 
     app.run(host="0.0.0.0",port=port)
-
-
