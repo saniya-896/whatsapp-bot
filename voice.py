@@ -11,7 +11,7 @@ from requests.auth import HTTPBasicAuth
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-app = Flask(**name**)
+app = Flask(__name__)
 
 ACCOUNT_SID = os.environ.get("ACCOUNT_SID")
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
@@ -487,3 +487,4 @@ if **name**=="**main**":
 port=int(os.environ.get("PORT",8080))
 app.run(host="0.0.0.0",port=port)
 ```
+
