@@ -1,3 +1,4 @@
+```python
 from flask import Flask, request, send_file
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
@@ -13,7 +14,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from gtts import gTTS
-import openai
+from openai import OpenAI
 
 app = Flask(__name__)
 
@@ -22,15 +23,16 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY")
 
 client = Client(ACCOUNT_SID, AUTH_TOKEN)
-
-openai.api_key = OPENAI_KEY
+ai_client = OpenAI(api_key=OPENAI_KEY)
 
 AudioSegment.converter = os.getenv("FFMPEG_PATH", "/usr/bin/ffmpeg")
+
+# CHANGE THIS TO YOUR RENDER DOMAIN
+BASE_URL = "https://whatsapp-bot-mr7x.onrender.com"
 
 user_data = {}
 
 ADMIN_NUMBERS = ["whatsapp:+919633406610"]
-
 
 # ---------------- NORMALIZE COMMAND ----------------
 
@@ -49,8 +51,7 @@ def normalize_command(text):
 
     return text
 
-
-# ---------------- AI MALAYALAM CHAT ----------------
+# ---------------- AI CHAT ----------------
 
 def ai_chat(question):
 
@@ -63,18 +64,18 @@ User question: {question}
 
     try:
 
-        response = openai.ChatCompletion.create(
+        response = ai_client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role":"user","content":prompt}],
-            max_tokens=200
+            messages=[{"role":"user","content":prompt}]
         )
 
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
 
-    except:
+    except Exception as e:
+
+        print(e)
 
         return "ക്ഷമിക്കണം, ഇപ്പോൾ സർവീസ് ലഭ്യമല്ല."
-
 
 # ---------------- VOICE GENERATION ----------------
 
@@ -87,7 +88,6 @@ def generate_voice(text):
     tts.save(filename)
 
     return filename
-
 
 # ---------------- CONFIRM SCREEN ----------------
 
@@ -106,7 +106,6 @@ def show_confirm(msg,data):
         "5 Cancel Application"
     )
 
-
 # ---------------- PDF GENERATION ----------------
 
 def generate_pdf(data,app_id):
@@ -119,11 +118,8 @@ def generate_pdf(data,app_id):
 
     elements.append(Paragraph("Government of Kerala",styles['Title']))
     elements.append(Paragraph("E-Akshaya Digital Service Center",styles['Heading2']))
-
     elements.append(Spacer(1,20))
-
     elements.append(Paragraph(f"<b>Application ID:</b> {app_id}",styles['Normal']))
-
     elements.append(Spacer(1,20))
 
     table_data=[
@@ -153,7 +149,6 @@ def generate_pdf(data,app_id):
 
     return filename
 
-
 # ---------------- SAVE CSV ----------------
 
 def save_application(data,app_id):
@@ -176,31 +171,6 @@ def save_application(data,app_id):
             "Submitted"
         ])
 
-
-# ---------------- UPDATE STATUS ----------------
-
-def update_status(app_id,new_status):
-
-    if not os.path.exists("applications.csv"):
-        return
-
-    rows=[]
-
-    with open("applications.csv","r") as f:
-        rows=list(csv.reader(f))
-
-    for r in rows:
-
-        if len(r)<6:
-            continue
-
-        if r[0]==app_id:
-            r[5]=new_status
-
-    with open("applications.csv","w",newline="") as f:
-        csv.writer(f).writerows(rows)
-
-
 # ---------------- PDF DOWNLOAD ----------------
 
 @app.route("/pdf/<filename>")
@@ -212,7 +182,6 @@ def get_pdf(filename):
         return send_file(file_path,as_attachment=True)
 
     return "PDF not found",404
-
 
 # ---------------- VOICE FILE ----------------
 
@@ -226,13 +195,11 @@ def get_voice(filename):
 
     return "File not found",404
 
-
 # ---------------- HOME ----------------
 
 @app.route("/")
 def home():
     return "WhatsApp Bot Running"
-
 
 # ---------------- WHATSAPP BOT ----------------
 
@@ -246,49 +213,9 @@ def whatsapp_bot():
     body=request.values.get("Body")
 
     user_text=(body or "").strip().lower()
-
     text_msg=normalize_command(user_text)
 
     num_media=int(request.values.get("NumMedia",0))
-
-
-# ---------------- VOICE INPUT ----------------
-
-    if num_media>0:
-
-        media_url=request.values.get("MediaUrl0")
-
-        audio_data=requests.get(
-            media_url,
-            auth=HTTPBasicAuth(ACCOUNT_SID,AUTH_TOKEN)
-        )
-
-        with open("/tmp/voice.ogg","wb") as f:
-            f.write(audio_data.content)
-
-        try:
-
-            sound=AudioSegment.from_file("/tmp/voice.ogg")
-            sound.export("/tmp/voice.wav",format="wav")
-
-            recognizer=sr.Recognizer()
-
-            with sr.AudioFile("/tmp/voice.wav") as source:
-                audio=recognizer.record(source)
-
-            try:
-                spoken=recognizer.recognize_google(audio,language="ml-IN").lower()
-            except:
-                spoken=recognizer.recognize_google(audio,language="en-IN").lower()
-
-            user_text=spoken
-            text_msg=normalize_command(spoken)
-
-        except:
-
-            msg.body("Voice not understood")
-            return str(resp)
-
 
 # ---------------- AI CHAT ----------------
 
@@ -296,61 +223,15 @@ def whatsapp_bot():
 
         question=user_text.replace("ai","").strip()
 
-        if not question:
-            msg.body("Ask question like:\nai pension എങ്ങനെ apply ചെയ്യാം?")
-            return str(resp)
-
         answer=ai_chat(question)
 
         generate_voice(answer)
 
         msg.body(answer)
 
-        msg.media("https://your-domain.com/voice/reply.mp3")
+        msg.media(f"{BASE_URL}/voice/reply.mp3")
 
         return str(resp)
-
-
-# ---------------- STATUS ----------------
-
-    if user_text.startswith("status"):
-
-        parts=user_text.split()
-
-        if len(parts)!=2:
-            msg.body("Use: status AKS-123456")
-            return str(resp)
-
-        app_id=parts[1].upper()
-
-        if not os.path.exists("applications.csv"):
-            msg.body("Database empty")
-            return str(resp)
-
-        with open("applications.csv","r") as f:
-
-            reader=csv.reader(f)
-
-            for row in reader:
-
-                if len(row)<6:
-                    continue
-
-                if row[0]==app_id:
-
-                    msg.body(
-                        f"Application Status\n\n"
-                        f"ID: {row[0]}\n"
-                        f"Service: {row[1]}\n"
-                        f"Name: {row[2]}\n"
-                        f"Status: {row[5]}"
-                    )
-
-                    return str(resp)
-
-        msg.body("Application not found")
-        return str(resp)
-
 
 # ---------------- START ----------------
 
@@ -367,7 +248,6 @@ def whatsapp_bot():
 
         return str(resp)
 
-
 # ---------------- USER INIT ----------------
 
     if sender not in user_data:
@@ -380,7 +260,6 @@ def whatsapp_bot():
 
     step=user_data[sender]["step"]
 
-
 # ---------------- MENU ----------------
 
     if step=="menu":
@@ -388,40 +267,29 @@ def whatsapp_bot():
         if text_msg=="1":
 
             user_data[sender]["service"]="Pension"
-
             user_data[sender]["step"]="name"
-
             msg.body("Enter your name")
-
 
         elif text_msg=="2":
 
             user_data[sender]["service"]="Income Certificate"
-
             user_data[sender]["step"]="name"
-
             msg.body("Enter your name")
-
 
         elif text_msg=="3":
 
             user_data[sender]["service"]="Ration Card"
-
             user_data[sender]["step"]="name"
-
             msg.body("Enter your name")
-
 
 # ---------------- NAME ----------------
 
     elif step=="name":
 
         user_data[sender]["name"]=text_msg.title()
-
         user_data[sender]["step"]="aadhaar"
 
         msg.body("Enter Aadhaar number")
-
 
 # ---------------- AADHAAR ----------------
 
@@ -434,22 +302,18 @@ def whatsapp_bot():
         else:
 
             user_data[sender]["aadhaar"]=text_msg
-
             user_data[sender]["step"]="address"
 
             msg.body("Enter address")
-
 
 # ---------------- ADDRESS ----------------
 
     elif step=="address":
 
         user_data[sender]["address"]=text_msg
-
         user_data[sender]["step"]="confirm"
 
         show_confirm(msg,user_data[sender])
-
 
 # ---------------- CONFIRM ----------------
 
@@ -463,7 +327,7 @@ def whatsapp_bot():
 
             generate_pdf(user_data[sender],app_id)
 
-            pdf_url=f"https://your-domain.com/pdf/{app_id}.pdf"
+            pdf_url=f"{BASE_URL}/pdf/{app_id}.pdf"
 
             msg.body(
                 f"Application Submitted\n\n"
@@ -477,92 +341,11 @@ def whatsapp_bot():
 
             return str(resp)
 
-
-        elif text_msg=="2":
-
-            user_data[sender]["step"]="edit_name"
-
-            msg.body("Enter correct name")
-
-            return str(resp)
-
-
-        elif text_msg=="3":
-
-            user_data[sender]["step"]="edit_aadhaar"
-
-            msg.body("Enter correct Aadhaar")
-
-            return str(resp)
-
-
-        elif text_msg=="4":
-
-            user_data[sender]["step"]="edit_address"
-
-            msg.body("Enter correct address")
-
-            return str(resp)
-
-
-        elif text_msg=="5":
-
-            user_data.pop(sender)
-
-            msg.body("Application cancelled")
-
-            return str(resp)
-
-
-# ---------------- EDIT NAME ----------------
-
-    elif step=="edit_name":
-
-        user_data[sender]["name"]=text_msg.title()
-
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-
-        return str(resp)
-
-
-# ---------------- EDIT AADHAAR ----------------
-
-    elif step=="edit_aadhaar":
-
-        if not text_msg.isdigit() or len(text_msg)!=12:
-
-            msg.body("Enter valid Aadhaar")
-
-            return str(resp)
-
-        user_data[sender]["aadhaar"]=text_msg
-
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-
-        return str(resp)
-
-
-# ---------------- EDIT ADDRESS ----------------
-
-    elif step=="edit_address":
-
-        user_data[sender]["address"]=text_msg
-
-        user_data[sender]["step"]="confirm"
-
-        show_confirm(msg,user_data[sender])
-
-        return str(resp)
-
     return str(resp)
-
 
 if __name__=="__main__":
 
     port=int(os.environ.get("PORT",8080))
 
     app.run(host="0.0.0.0",port=port)
+```
