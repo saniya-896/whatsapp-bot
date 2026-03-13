@@ -539,7 +539,7 @@ def whatsapp_bot():
             msg.body("Enter correct address")
 
 
-        elif text_msg in ["cancel","6"]:
+        elif text_msg=="6":
 
             user_data.pop(sender)
 
@@ -592,4 +592,5 @@ if __name__=="__main__":
     port=int(os.environ.get("PORT",8080))
 
     app.run(host="0.0.0.0",port=port)
+
 
