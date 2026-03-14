@@ -29,16 +29,26 @@ ADMIN_NUMBERS = ["whatsapp:+919633406610"]
 # ---------------- VOICE ----------------
 
 def create_voice(text, sender):
-    filename = f"/tmp/{sender.replace(':','')}.mp3"
+
+    filename = f"/tmp/{sender.replace(':','')}_{random.randint(1000,999999)}.mp3"
+
     tts = gTTS(text=text, lang="ml")
+
     tts.save(filename)
+
     return filename
 
 
 def send_voice(msg, text, sender):
+
     voice_file = create_voice(text, sender)
-    audio_url = f"https://whatsapp-bot-mr7x.onrender.com/audio/{os.path.basename(voice_file)}"
+
+    base_url = request.url_root
+
+    audio_url = f"{base_url}audio/{os.path.basename(voice_file)}"
+
     msg.body(text)
+
     msg.media(audio_url)
 
 
